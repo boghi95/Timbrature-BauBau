@@ -1,12 +1,11 @@
-const CACHE_NAME = "timbrature-baubau-v3";
+const CACHE_NAME = "timbrature-baubau-v4";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)).then(async () => {
-      // Migrazione iniziale dalla vecchia versione v1: quella pagina non aveva ancora
-      // il dialogo di aggiornamento. Attiviamo una sola volta il codice che lo introduce.
-      // Le versioni successive (v2 -> v3 e oltre) resteranno in attesa del backup.
+      // Una sola migrazione iniziale dalla versione v1, che non aveva il dialogo backup.
+      // Gli aggiornamenti successivi restano in attesa della conferma dell'utente.
       const keys = await caches.keys();
       if (keys.includes("timbrature-baubau-v1")) await self.skipWaiting();
     })
@@ -30,8 +29,6 @@ self.addEventListener("fetch", event => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Per la pagina principale prova prima la rete, così online si vede il contenuto più recente;
-  // se manca la connessione usa la copia in cache.
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request).then(response => {
       if (response && response.ok) {

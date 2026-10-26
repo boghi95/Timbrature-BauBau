@@ -528,10 +528,12 @@ setInterval(tick,1000);tick();render();
     applyButton.disabled = true;
     waitingWorker.postMessage({ type: "SKIP_WAITING" });
   });
+  let reloadingForUpdate = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
-    // Il nuovo worker ha preso il controllo: ricarica una sola volta per mostrare la versione aggiornata.
-    if (sessionStorage.getItem("bau-update-reloading") === "1") return;
-    sessionStorage.setItem("bau-update-reloading", "1");
+    // Ricarica una sola volta per questo cambio di controller, senza lasciare
+    // un flag persistente che possa bloccare gli aggiornamenti futuri.
+    if (reloadingForUpdate) return;
+    reloadingForUpdate = true;
     window.location.reload();
   });
   window.addEventListener("load", async () => {

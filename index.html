@@ -526,39 +526,58 @@ setInterval(tick,1000);tick();render();
   manualCheckButton.addEventListener("click", async () => {
     if (!adminMode) return;
     if (!navigator.onLine) {
-      alert("Sei offline. Collega l'iPhone a Internet e riprova.");
+      alert("Sei offline. Collega il dispositivo a Internet e riprova.");
       return;
     }
     manualCheckButton.disabled = true;
     manualCheckButton.textContent = "Controllo in corso…";
-    let foundUpdate = false;
-    const onFound = () => {
-      foundUpdate = true;
-      const installing = updateRegistration && updateRegistration.installing;
-      if (installing) installing.addEventListener("statechange", () => {
-        if (installing.state === "installed" && updateRegistration.waiting) showUpdate(updateRegistration.waiting);
-      });
-    };
-    if (updateRegistration) updateRegistration.addEventListener("updatefound", onFound, { once: true });
+    let timer;
     try {
       if (!updateRegistration) {
         updateRegistration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
       }
+      // Se un aggiornamento è già in attesa, non avviare un altro controllo.
+      if (updateRegistration.waiting && navigator.serviceWorker.controller) {
+        showUpdate(updateRegistration.waiting);
+        return;
+      }
+
+      const installingBefore = updateRegistration.installing;
+      let sawUpdate = !!installingBefore;
+      const updateInstalled = new Promise((resolve, reject) => {
+        const watch = worker => {
+          if (!worker) return;
+          sawUpdate = true;
+          const checkState = () => {
+            if (worker.state === "installed" && updateRegistration.waiting && navigator.serviceWorker.controller) resolve(updateRegistration.waiting);
+            else if (worker.state === "redundant") reject(new Error("Installazione annullata"));
+          };
+          worker.addEventListener("statechange", checkState);
+          checkState();
+        };
+        updateRegistration.addEventListener("updatefound", () => watch(updateRegistration.installing), { once: true });
+        if (installingBefore) watch(installingBefore);
+        timer = setTimeout(() => resolve(null), 15000);
+      });
+
       await updateRegistration.update();
-      setTimeout(() => {
-        if (updateRegistration && updateRegistration.waiting && navigator.serviceWorker.controller) {
-          showUpdate(updateRegistration.waiting);
-        } else if (!foundUpdate) {
-          alert("Nessun aggiornamento rilevato. Se hai appena pubblicato modifiche su GitHub, attendi qualche istante e riprova.");
-        }
-      }, 1200);
+      // Lascia terminare l'installazione: update() può risolversi prima che il nuovo SW sia pronto.
+      const installedWorker = await updateInstalled;
+      if (installedWorker) {
+        showUpdate(installedWorker);
+      } else if (updateRegistration.waiting && navigator.serviceWorker.controller) {
+        showUpdate(updateRegistration.waiting);
+      } else if (!sawUpdate) {
+        alert("Non risultano aggiornamenti nuovi: il file sw.js pubblicato sembra già essere quello in uso. Se hai appena caricato modifiche, attendi la pubblicazione di GitHub Pages e riprova.");
+      } else {
+        alert("Ho rilevato una verifica/installazione, ma il nuovo service worker non è ancora pronto. Attendi qualche secondo e riprova.");
+      }
     } catch (err) {
       alert("Non sono riuscito a verificare gli aggiornamenti. Controlla la connessione e riprova.");
     } finally {
-      setTimeout(() => {
-        manualCheckButton.disabled = false;
-        manualCheckButton.textContent = "Verifica aggiornamenti";
-      }, 1300);
+      clearTimeout(timer);
+      manualCheckButton.disabled = false;
+      manualCheckButton.textContent = "Verifica aggiornamenti";
     }
   });
   backupButton.addEventListener("click", () => {

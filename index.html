@@ -12,7 +12,10 @@
 *{box-sizing:border-box}
 body{margin:0;padding:16px}
 main{max-width:850px;margin:0 auto}
-header{background:#172033;color:white;padding:20px;border-radius:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+header{background:#172033;color:white;padding:20px;border-radius:16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;position:relative;isolation:isolate;overflow:hidden}
+/* Filigrana cinofila: decorativa, dietro al contenuto e senza coprire testo o logo. */
+header::before{content:"";position:absolute;z-index:-1;left:22%;right:17%;top:5%;bottom:5%;background:url("./watermark-dog.svg") center/contain no-repeat;opacity:.19;pointer-events:none}
+header .header-info,header .header-logo{position:relative;z-index:1}
 h1{margin:0 0 6px;font-size:28px}
 .subtitle{color:#d6deec;margin:0}
 .header-info{min-width:0;flex:1}

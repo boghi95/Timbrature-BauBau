@@ -1,15 +1,10 @@
-const CACHE_NAME = "timbrature-baubau-v5";
+const CACHE_NAME = "timbrature-baubau-v6";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png", "./watermark-dog.svg"];
 
 self.addEventListener("install", event => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)).then(async () => {
-      // Una sola migrazione iniziale dalla versione v1, che non aveva il dialogo backup.
-      // Gli aggiornamenti successivi restano in attesa della conferma dell'utente.
-      const keys = await caches.keys();
-      if (keys.includes("timbrature-baubau-v1")) await self.skipWaiting();
-    })
-  );
+  // Non attivare mai automaticamente una nuova versione: resta in attesa
+  // finché l'utente non conferma dall'app dopo aver scaricato il backup.
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(FILES)));
 });
 
 self.addEventListener("message", event => {

@@ -1,4 +1,4 @@
-const CACHE_NAME = "timbrature-baubau-v5";
+const CACHE_NAME = "timbrature-baubau-v6";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-180.png", "./icon-192.png", "./icon-512.png", "./watermark-dog.svg"];
 
 self.addEventListener("install", event => {

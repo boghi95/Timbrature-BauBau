@@ -77,6 +77,19 @@ body:not(.admin-mode) #empty{margin:8px 0 0}
 body.admin-mode #adminMode{display:inline-block}
 body.admin-mode header h1{cursor:pointer}
 
+
+/* Aggiornamenti: il backup deve essere confermato prima di applicare la nuova versione */
+.update-backdrop{position:fixed;inset:0;background:#172033cc;display:flex;align-items:center;justify-content:center;padding:18px;z-index:2000}
+.update-backdrop.hidden{display:none}
+.update-modal{background:white;color:#172033;border-radius:18px;padding:22px;max-width:440px;width:100%;box-shadow:0 12px 40px #0005}
+.update-modal h2{margin:0 0 10px;font-size:22px}
+.update-modal p{line-height:1.45}
+.update-modal button{width:100%;margin-top:10px}
+.update-confirm{display:flex;gap:10px;align-items:flex-start;margin-top:14px;line-height:1.4;font-size:14px}
+.update-confirm input{width:auto;margin:3px 0 0;flex:0 0 auto}
+#applyUpdate{background:#16834a;color:white}
+#applyUpdate:disabled{opacity:.4}
+
 </style>
 </head>
 <body>
@@ -175,6 +188,19 @@ body.admin-mode header h1{cursor:pointer}
     </div>
   </div>
 </div>
+
+<div id="updateBackdrop" class="update-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="updateTitle">
+  <div class="update-modal">
+    <h2 id="updateTitle">Aggiornamento disponibile</h2>
+    <p>È disponibile una nuova versione di Timbrature BauBau. Prima di aggiornare, scarica un backup completo dei cinofili, dei codici e delle timbrature presenti su questo dispositivo.</p>
+    <button id="downloadUpdateBackup" class="secondary" type="button">1. Scarica backup completo</button>
+    <label class="update-confirm"><input id="confirmUpdateBackup" type="checkbox"> <span>Ho verificato di aver salvato il file di backup sul dispositivo o in un'altra posizione sicura.</span></label>
+    <button id="applyUpdate" type="button" disabled>2. Aggiorna l'app</button>
+    <button id="laterUpdate" class="secondary" type="button">Aggiorna più tardi</button>
+    <p class="warning">L'aggiornamento non dovrebbe cancellare i dati locali, ma il backup è una precauzione importante. Se non riesci a salvare il file, non confermare l'aggiornamento.</p>
+  </div>
+</div>
+
 <script>
 "use strict";
 const KEY = "timbratura_offline_v1";
@@ -468,11 +494,66 @@ setInterval(tick,1000);tick();render();
 </script>
 
 <script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(err => console.error("Service worker:", err));
+// Gestione aggiornamenti PWA: backup esplicito prima di attivare una versione in attesa.
+(() => {
+  if (!("serviceWorker" in navigator)) return;
+  let waitingWorker = null;
+  let updateRegistration = null;
+  const backdrop = document.getElementById("updateBackdrop");
+  const backupButton = document.getElementById("downloadUpdateBackup");
+  const confirmBackup = document.getElementById("confirmUpdateBackup");
+  const applyButton = document.getElementById("applyUpdate");
+  const laterButton = document.getElementById("laterUpdate");
+
+  function showUpdate(worker) {
+    if (!worker || !navigator.serviceWorker.controller) return;
+    waitingWorker = worker;
+    confirmBackup.checked = false;
+    applyButton.disabled = true;
+    backdrop.classList.remove("hidden");
+  }
+  backupButton.addEventListener("click", () => {
+    try {
+      const payload = { ...state, people: state.people, records: state.records, codes: state.codes || {}, exportedAt: new Date().toISOString(), kind: "baubau-full-backup" };
+      download(new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"}), "backup_completo_timbrature_baubau_" + todayFile() + ".json");
+      alert("È stato richiesto il download del backup. Verifica che il file JSON sia stato salvato prima di spuntare la conferma.");
+    } catch (e) {
+      alert("Non è stato possibile preparare il backup. Non aggiornare finché non hai una copia sicura dei dati.");
+    }
   });
-}
+  confirmBackup.addEventListener("change", () => { applyButton.disabled = !confirmBackup.checked; });
+  laterButton.addEventListener("click", () => backdrop.classList.add("hidden"));
+  applyButton.addEventListener("click", () => {
+    if (!confirmBackup.checked || !waitingWorker) return;
+    applyButton.disabled = true;
+    waitingWorker.postMessage({ type: "SKIP_WAITING" });
+  });
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // Il nuovo worker ha preso il controllo: ricarica una sola volta per mostrare la versione aggiornata.
+    if (sessionStorage.getItem("bau-update-reloading") === "1") return;
+    sessionStorage.setItem("bau-update-reloading", "1");
+    window.location.reload();
+  });
+  window.addEventListener("load", async () => {
+    try {
+      updateRegistration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+      if (updateRegistration.waiting && navigator.serviceWorker.controller) showUpdate(updateRegistration.waiting);
+      updateRegistration.addEventListener("updatefound", () => {
+        const installing = updateRegistration.installing;
+        if (!installing) return;
+        installing.addEventListener("statechange", () => {
+          if (installing.state === "installed" && navigator.serviceWorker.controller && updateRegistration.waiting) {
+            showUpdate(updateRegistration.waiting);
+          }
+        });
+      });
+      // Controlla periodicamente gli aggiornamenti mentre l'app è aperta e online.
+      const checkForUpdate = () => { if (navigator.onLine && updateRegistration) updateRegistration.update().catch(() => {}); };
+      setInterval(checkForUpdate, 60 * 1000);
+      document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkForUpdate(); });
+    } catch (err) { console.error("Service worker:", err); }
+  });
+})();
 </script>
 
 </body>

@@ -161,6 +161,33 @@ body:not(.admin-mode) #workspace>.panel:first-child{min-height:0}
   body:not(.admin-mode) .person { min-height:54px; white-space:normal; overflow-wrap:anywhere; }
 }
 
+
+/* v12: tre layout selezionabili da Modalità Messia */
+#workspaceTabs{display:none;gap:8px;margin:0 0 8px;flex:0 0 auto}
+#workspaceTabs button{flex:1;min-width:0}
+body:not(.admin-mode).layout-schede #workspaceTabs{display:flex}
+body:not(.admin-mode).layout-schede #workspace{display:block;flex:1 1 0;min-height:0;overflow:hidden}
+body:not(.admin-mode).layout-schede #workspace>.panel{display:none!important;height:100%;}
+body:not(.admin-mode).layout-schede #workspace>.panel.tab-active{display:flex!important;}
+body:not(.admin-mode).layout-schede #workspace>.panel.tab-active #people,
+body:not(.admin-mode).layout-schede #workspace>.panel.tab-active #eventList{flex:1 1 0;height:0;min-height:0;overflow-y:auto!important;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+body:not(.admin-mode).layout-divisa #workspace{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr)!important}
+body:not(.admin-mode).layout-divisa #workspace>.panel{display:flex!important}
+body:not(.admin-mode).layout-verticale{overflow:auto!important}
+body:not(.admin-mode).layout-verticale main{height:auto!important;min-height:calc(100dvh - 20px);display:flex;flex-direction:column}
+body:not(.admin-mode).layout-verticale #workspace{display:flex!important;flex-direction:column;flex:0 0 auto;min-height:0;overflow:visible;gap:12px}
+body:not(.admin-mode).layout-verticale #workspace>.panel{display:flex!important;flex-direction:column;overflow:visible;min-height:0;height:auto}
+body:not(.admin-mode).layout-verticale #workspace #people{display:grid!important;flex:0 0 auto;height:auto;max-height:none;min-height:0;overflow:visible!important;grid-template-columns:repeat(auto-fit,minmax(min(145px,100%),1fr))}
+body:not(.admin-mode).layout-verticale #workspace #eventList{display:block;flex:0 0 auto;height:auto;min-height:0;overflow:visible!important}
+body:not(.admin-mode).layout-verticale #workspace #punch{flex:0 0 auto}
+body:not(.admin-mode).layout-verticale #workspace #eventsPanel .row{flex:0 0 auto}
+body.admin-mode #layoutSettingsPanel{display:block}
+@media(max-width:700px){
+ body:not(.admin-mode).layout-divisa #workspace{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+ body:not(.admin-mode).layout-divisa #workspace>.panel{padding:8px}
+ body:not(.admin-mode).layout-divisa #workspace h2{font-size:14px}
+ body:not(.admin-mode).layout-divisa #workspace button{padding:8px 5px;font-size:13px}
+}
 </style>
 </head>
 <body>
@@ -176,6 +203,10 @@ body:not(.admin-mode) #workspace>.panel:first-child{min-height:0}
 </header>
 <div id="searchBar"><input id="globalSearch" placeholder="Cerca cinofilo, codice, evento o scadenza…" aria-label="Ricerca globale"><button id="searchClear" class="secondary" type="button">Cerca</button></div>
 <div id="alertBanner" class="hidden" role="alert"></div>
+<div id="workspaceTabs" class="hidden" aria-label="Sezioni home">
+  <button id="showPeopleTab" class="secondary" type="button" aria-pressed="true">Cinofili</button>
+  <button id="showEventsTab" class="secondary" type="button" aria-pressed="false">Eventi e scadenze</button>
+</div>
 <div id="workspace">
 <section class="panel">
   <h2>1. Seleziona il cinofilo</h2>
@@ -191,6 +222,19 @@ body:not(.admin-mode) #workspace>.panel:first-child{min-height:0}
   <div class="row"><button id="addEvent" class="secondary" type="button">Aggiungi evento</button><button id="addDeadline" class="secondary" type="button">Aggiungi scadenza</button></div>
 </section>
 </div>
+
+<section class="panel" id="layoutSettingsPanel">
+  <h2>Visualizzazione dell’app</h2>
+  <p class="warning">Scegli come disporre cinofili e calendario. La scelta viene salvata su questo dispositivo.</p>
+  <label for="layoutMode">Modalità di visualizzazione</label>
+  <select id="layoutMode" style="width:100%;padding:12px;border:1px solid #bbc4d2;border-radius:8px;font:inherit;margin:6px 0 10px">
+    <option value="auto">Automatica: PC diviso, telefono a schede</option>
+    <option value="divisa">Divisa: cinofili e calendario affiancati</option>
+    <option value="schede">A schede: passa da cinofili a calendario</option>
+    <option value="verticale">Verticale: cinofili sopra, calendario sotto</option>
+  </select>
+  <button id="saveLayout" class="secondary" type="button">Salva visualizzazione</button>
+</section>
 
 <section class="panel">
   <h2>Gestione cinofili</h2>
@@ -292,6 +336,40 @@ let selected = "";
 let adminMode = false; // per sicurezza si riattiva solo inserendo il codice a ogni apertura
 const ADMIN_CODE = "1234";
 const $ = id => document.getElementById(id);
+const LAYOUT_KEY = "timbrature_baubau_layout_v12";
+let activeTab = "people";
+function getLayout(){
+  let mode="auto";
+  try{mode=localStorage.getItem(LAYOUT_KEY)||"auto";}catch(e){}
+  if(!["auto","divisa","schede","verticale"].includes(mode))mode="auto";
+  return mode;
+}
+function effectiveLayout(){
+  const mode=getLayout();
+  if(mode!=="auto")return mode;
+  return window.matchMedia("(min-width: 700px) and (orientation: landscape)").matches ? "divisa" : "schede";
+}
+function applyLayout(){
+  const mode=getLayout();
+  document.body.classList.remove("layout-divisa","layout-schede","layout-verticale");
+  document.body.classList.add("layout-"+effectiveLayout());
+  const selector=$("layoutMode");if(selector && selector.value!==mode)selector.value=mode;
+  const workspace=$("workspace");
+  const peoplePanel=workspace?.querySelector(":scope > .panel:first-child");
+  const eventsPanel=$("eventsPanel");
+  if(peoplePanel)peoplePanel.classList.toggle("tab-active",activeTab==="people");
+  if(eventsPanel)eventsPanel.classList.toggle("tab-active",activeTab==="events");
+  const p=$("showPeopleTab"),e=$("showEventsTab");
+  if(p)p.setAttribute("aria-pressed",String(activeTab==="people"));
+  if(e)e.setAttribute("aria-pressed",String(activeTab==="events"));
+}
+function saveLayoutChoice(){
+  const selector=$("layoutMode");if(!selector)return;
+  try{localStorage.setItem(LAYOUT_KEY,selector.value);}catch(e){}
+  activeTab="people";applyLayout();
+  alert("Visualizzazione salvata su questo dispositivo.");
+}
+
 
 function loadState(){
   try{
@@ -466,6 +544,7 @@ $("closeSearch").onclick=()=>$("searchPage").classList.add("hidden");
 
 function applyAccessMode(){
   document.body.classList.toggle("admin-mode",adminMode);
+  applyLayout();
   const ids=["newName","add","manage","exportMonthly","exportShifts","export","backup","restore","backupPeople","restorePeople","backupRecords","restoreRecords","clearHistory"];
   ids.forEach(id=>{const el=$(id);if(el)el.disabled=!adminMode;});
   document.querySelectorAll("#managePeople button").forEach(el=>el.disabled=!adminMode);
@@ -673,6 +752,12 @@ function download(blob,name){
   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function tick(){$("clock").textContent=new Date().toLocaleString("it-IT",{weekday:"long",day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});}
+$("saveLayout").addEventListener("click",saveLayoutChoice);
+$("showPeopleTab").addEventListener("click",()=>{activeTab="people";applyLayout();});
+$("showEventsTab").addEventListener("click",()=>{activeTab="events";applyLayout();});
+window.addEventListener("resize",()=>{if(getLayout()==="auto")applyLayout();});
+window.addEventListener("orientationchange",()=>{if(getLayout()==="auto")applyLayout();});
+applyLayout();
 setInterval(tick,1000);tick();render();renderEvents();
 </script>
 

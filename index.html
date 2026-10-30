@@ -94,7 +94,12 @@ body.admin-mode header h1{cursor:pointer}
 #applyUpdate:disabled{opacity:.4}
 
 
-body:not(.admin-mode) main>section.panel:nth-of-type(n+3){display:none!important}
+/* In home, only the two panels inside #workspace are visible. All other direct panels are admin-only. */
+body:not(.admin-mode) main>section.panel{display:none!important}
+body:not(.admin-mode) #workspace>.panel{display:block!important}
+body:not(.admin-mode) #manageArea{display:none!important}
+body:not(.admin-mode) #eventsPanel .row{display:none!important}
+body:not(.admin-mode) #adminMode{display:none!important}
 /* Layout normale a due aree; amministrazione resta una colonna scorrevole */
 body:not(.admin-mode) main{max-width:none;height:calc(100dvh - 20px);display:flex;flex-direction:column}
 body:not(.admin-mode) main>header{flex:0 0 auto}
@@ -282,7 +287,7 @@ function nextType(name){
 }
 function render(){
   const people=$("people"); people.innerHTML="";
-  state.people.forEach(name=>{
+  sortedPeople().forEach(name=>{
     const b=document.createElement("button");
     const inside=nextType(name)==="Uscita";
     const active=inside?latestFor(name):null;
@@ -397,7 +402,17 @@ function doSearch(){
  state.events.forEach(e=>{if((e.title+" "+(e.place||"")+" "+e.date).toLocaleLowerCase("it").includes(q))results.push({type:"Evento",title:e.title,detail:dateLabel(e.date)+(e.place?" · "+e.place:"")});});
  state.deadlines.forEach(d=>{if((d.title+" "+d.date).toLocaleLowerCase("it").includes(q))results.push({type:"Scadenza",title:d.title,detail:dateLabel(d.date)});});
  const box=$("searchResults");box.innerHTML="";
- if(!results.length){box.textContent="Nessun risultato.";}else results.forEach(r=>{const el=document.createElement("div");el.className="event-item";const b=document.createElement("strong");b.textContent=r.title;const sm=document.createElement("small");sm.textContent=r.type+" · "+r.detail;el.append(b,sm);box.appendChild(el);});
+ if(!results.length){box.textContent="Nessun risultato.";}else results.forEach(r=>{
+   const el=document.createElement("button");el.type="button";el.className="event-item search-result";
+   el.style.display="block";el.style.width="100%";el.style.textAlign="left";el.style.color="inherit";el.style.border="1px solid #d5dbe5";el.style.cursor="pointer";
+   const b=document.createElement("strong");b.textContent=r.title;const sm=document.createElement("small");sm.textContent=r.type+" · "+r.detail;el.append(b,sm);
+   el.addEventListener("click",()=>{
+     $("searchPage").classList.add("hidden");
+     if(r.type==="Cinofilo") { selected=r.title; render(); }
+     else { document.getElementById("eventsPanel").scrollIntoView({behavior:"smooth",block:"start"}); }
+   });
+   box.appendChild(el);
+ });
  $("searchPage").classList.remove("hidden");
 }
 $("searchClear").onclick=doSearch;$("globalSearch").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch();});

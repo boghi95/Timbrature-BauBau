@@ -450,6 +450,17 @@ function applyLayout(){
   const eventsPanel=$("eventsPanel");
   if(peoplePanel)peoplePanel.classList.toggle("tab-active",activeTab==="people");
   if(eventsPanel)eventsPanel.classList.toggle("tab-active",activeTab==="events");
+  // v19: in modalità schede, imponi anche via stile inline quale pannello mostrare.
+  // Le regole CSS legacy del landscape non possono così riaprire il pannello inattivo.
+  const selectedLayout=effectiveLayout();
+  if(peoplePanel){
+    if(selectedLayout==="schede") peoplePanel.style.setProperty("display", activeTab==="people" ? "flex" : "none", "important");
+    else peoplePanel.style.removeProperty("display");
+  }
+  if(eventsPanel){
+    if(selectedLayout==="schede") eventsPanel.style.setProperty("display", activeTab==="events" ? "flex" : "none", "important");
+    else eventsPanel.style.removeProperty("display");
+  }
   const p=$("showPeopleTab"),e=$("showEventsTab");
   if(p)p.setAttribute("aria-pressed",String(activeTab==="people"));
   if(e)e.setAttribute("aria-pressed",String(activeTab==="events"));

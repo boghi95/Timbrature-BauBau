@@ -204,7 +204,7 @@ body.admin-mode #layoutSettingsPanel{display:block}
 <div id="searchBar"><input id="globalSearch" placeholder="Cerca cinofilo, codice, evento o scadenza…" aria-label="Ricerca globale"><button id="searchClear" class="secondary" type="button">Cerca</button></div>
 <div id="alertBanner" class="hidden" role="alert"></div>
 <div id="workspaceTabs" class="hidden" aria-label="Sezioni home">
-  <button id="showPeopleTab" class="secondary" type="button" aria-pressed="true">Cinofili</button>
+  <button id="showPeopleTab" class="secondary" type="button" aria-pressed="true">Presenze</button>
   <button id="showEventsTab" class="secondary" type="button" aria-pressed="false">Eventi e scadenze</button>
 </div>
 <div id="workspace">
@@ -556,7 +556,7 @@ function applyAccessMode(){
 document.querySelector("header h1").title="Tocca qui per accedere alla modalità Messia";
 document.querySelector("header h1").addEventListener("click",()=>$("adminMode").click());
 $("adminMode").onclick=()=>{
-  if(adminMode){adminMode=false;applyAccessMode();renderEvents();$("status").textContent="Modalità Messia disattivata.";return;}
+  if(adminMode){adminMode=false;applyAccessMode();renderEvents();return;}
   const code=prompt("Inserisci il codice Messia:");
   if(code===null)return;
   if(code===ADMIN_CODE){adminMode=true;applyAccessMode();renderEvents();$("status").textContent="Modalità Messia attivata.";}

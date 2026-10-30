@@ -98,14 +98,17 @@ body.admin-mode header h1{cursor:pointer}
 body:not(.admin-mode) main>section.panel{display:none!important}
 body:not(.admin-mode) #workspace>.panel{display:block!important}
 body:not(.admin-mode) #manageArea{display:none!important}
-body:not(.admin-mode) #eventsPanel .row{display:none!important}
+body:not(.admin-mode) #eventsPanel .row{display:flex!important}
 /* Layout normale a due aree; amministrazione resta una colonna scorrevole */
 body:not(.admin-mode) main{max-width:none;height:calc(100dvh - 20px);display:flex;flex-direction:column}
 body:not(.admin-mode) main>header{flex:0 0 auto}
 body:not(.admin-mode) #searchBar{flex:0 0 auto}
 body:not(.admin-mode) #alertBanner{flex:0 0 auto}
 body:not(.admin-mode) #workspace{display:grid;grid-template-columns:1fr;grid-template-rows:minmax(180px,1fr) minmax(160px,1fr);gap:10px;flex:1;min-height:0}
-body:not(.admin-mode) #workspace>.panel{margin:0;min-height:0;overflow-y:auto}
+body:not(.admin-mode) #workspace>.panel{margin:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
+body:not(.admin-mode) #workspace #people{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start}
+body:not(.admin-mode) #workspace #punch{flex:0 0 auto}
+.person{white-space:normal;overflow-wrap:anywhere;word-break:normal;min-width:0;line-height:1.15;padding:10px 7px;font-size:clamp(12px,2.8vw,16px)}
 body:not(.admin-mode) #workspace #people{grid-template-columns:repeat(auto-fit,minmax(125px,1fr))}
 body:not(.admin-mode) #workspace #eventsPanel .event-list{display:grid;gap:8px}
 body:not(.admin-mode) #workspace #eventsPanel .event-item{padding:10px;border-radius:10px;background:#f3f5f8}
@@ -129,9 +132,9 @@ body.admin-mode #workspace>.panel{overflow:visible}
 
 /* FIX: il pulsante Messia deve essere sempre visibile */
 #adminMode{display:inline-block!important;visibility:visible!important;position:relative;z-index:5}
-/* Inserimento eventi/scadenze disponibile solo in Modalità Messia */
-body:not(.admin-mode) #addEvent, body:not(.admin-mode) #addDeadline{display:none!important}
-body.admin-mode #addEvent, body.admin-mode #addDeadline{display:inline-block!important}
+/* I comandi calendario restano visibili in home; per salvare serve accesso Messia. */
+#eventsPanel .row{display:flex!important}
+#eventsPanel .row button{min-width:0}
 </style>
 </head>
 <body>
@@ -337,7 +340,7 @@ function render(){
 }
 
 function attendanceDays(name){
-  return new Set(state.records.filter(r=>r.name===name && r.type==="Entrata").map(r=>new Date(r.ts).toLocaleDateString("sv-SE"))).size;
+  return state.records.filter(r=>r.name===name && r.type==="Entrata").length;
 }
 function sortedPeople(){
   return state.people.map((name,index)=>({name,index,count:attendanceDays(name)}))
@@ -345,6 +348,11 @@ function sortedPeople(){
 }
 function localDateValue(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
 function dateLabel(value){if(!value)return "";const [y,m,d]=value.split("-").map(Number);return new Date(y,m-1,d).toLocaleDateString("it-IT");}
+function shouldAlertDeadline(d,diff){
+  if(d.alertDays===null||d.alertDays===undefined||diff<0||diff>Number(d.alertDays))return false;
+  const every=[1,2,3,7,14,30].includes(Number(d.repeatEvery))?Number(d.repeatEvery):1;
+  return (Number(d.alertDays)-diff)%every===0 || diff===0;
+}
 function renderEvents(){
   const list=$("eventList"); if(!list)return; list.innerHTML="";
   const today=localDateValue(new Date());
@@ -363,7 +371,7 @@ function renderEvents(){
     const el=document.createElement("div");el.className="event-item";
     const title=document.createElement("strong");title.textContent=(item.kind==="deadline"?"⏰ ":"📌 ")+item.title;el.appendChild(title);
     const meta=document.createElement("small");meta.textContent=(item.kind==="event"?"Evento":"Scadenza")+" · "+dateLabel(item.date)+(item.place?" · "+item.place:"");el.appendChild(meta);
-    if(item.kind==="deadline" && item.alertDays!==null && item.alertDays!==undefined){const diff=Math.round((new Date(item.date+"T12:00:00")-new Date(today+"T12:00:00"))/86400000);if(diff<=Number(item.alertDays)){const a=document.createElement("small");a.textContent=diff===0?"Scade oggi":diff<0?"Scaduta":"Mancano "+diff+" giorni";el.appendChild(a);}}
+    if(item.kind==="deadline" && item.alertDays!==null && item.alertDays!==undefined){const freq=[1,2,3,7,14,30].includes(Number(item.repeatEvery))?Number(item.repeatEvery):1;const freqText=document.createElement("small");freqText.textContent="Avvisi da "+item.alertDays+" giorni prima, ogni "+freq+ (freq===1?" giorno":" giorni");el.appendChild(freqText);const diff=Math.round((new Date(item.date+"T12:00:00")-new Date(today+"T12:00:00"))/86400000);if(shouldAlertDeadline(item,diff)){const a=document.createElement("small");a.textContent=diff===0?"Scade oggi":diff<0?"Scaduta":"Mancano "+diff+" giorni";el.appendChild(a);}}
     if(item.kind==="event" && item.pinned){const sm=document.createElement("small");sm.textContent="Promemoria visibile nella testata";el.appendChild(sm);}
     if(adminMode){
       const actions=document.createElement("div");actions.className="event-actions";
@@ -374,7 +382,7 @@ function renderEvents(){
     list.appendChild(el);
   });
   $("noEvents").classList.toggle("hidden",items.length>0);
-  const alerts=state.deadlines.filter(d=>d.alertDays!==null&&d.alertDays!==undefined).filter(d=>{const diff=Math.round((new Date(d.date+"T12:00:00")-new Date(today+"T12:00:00"))/86400000);return diff>=0&&diff<=Number(d.alertDays);});
+  const alerts=state.deadlines.filter(d=>d.alertDays!==null&&d.alertDays!==undefined).filter(d=>{const diff=Math.round((new Date(d.date+"T12:00:00")-new Date(today+"T12:00:00"))/86400000);return shouldAlertDeadline(d,diff);});
   const banner=$("alertBanner");banner.classList.toggle("hidden",!alerts.length);
   banner.textContent=alerts.length? "⚠ SCADENZE IN ARRIVO: "+alerts.map(d=>d.title+" ("+(d.date===today?"oggi":dateLabel(d.date))+")").join(" · "):"";
   $("headerReminders").textContent=state.events.filter(e=>e.pinned).map(e=>"• "+e.title+" · "+dateLabel(e.date)).join("   ");
@@ -385,17 +393,26 @@ function editItem(kind,id){
   const date=prompt("Data (AAAA-MM-GG):",item.date);if(date===null)return;if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){alert("Data non valida.");return;}
   item.title=title.trim();item.date=date;
   if(kind==="event"){const place=prompt("Luogo (facoltativo):",item.place||"");if(place!==null)item.place=place.trim();}
-  else {const a=prompt("Avviso quanti giorni prima? Lascia vuoto per nessun popup:",item.alertDays==null?"":String(item.alertDays));if(a===null)return;item.alertDays=a.trim()===""?null:Math.max(0,Math.min(365,Number(a)||0));}
+  else {
+    const a=prompt("Da quanti giorni prima iniziare gli avvisi? (0-365, vuoto = disattivati):",item.alertDays==null?"":String(item.alertDays));if(a===null)return;
+    item.alertDays=a.trim()===""?null:Math.max(0,Math.min(365,Number(a)||0));
+    if(item.alertDays!==null){const r=prompt("Ripetere l'avviso ogni quanti giorni? Scegli 1, 2, 3, 7, 14 o 30:",String(item.repeatEvery||1));if(r===null)return;const n=Number(r);if(![1,2,3,7,14,30].includes(n)){alert("Intervallo non valido. Uso ogni 1 giorno.");item.repeatEvery=1;}else item.repeatEvery=n;}
+  }
   saveState();renderEvents();
 }
 function addItem(kind){
-  if(!adminMode)return;
+  if(!adminMode){alert("Per aggiungere eventi o scadenze, entra prima in Modalità Messia. I pulsanti restano qui nel calendario per comodità.");return;}
   const title=prompt(kind==="event"?"Titolo dell'evento:":"Titolo della scadenza:");if(title===null||!title.trim())return;
   const date=prompt("Data (AAAA-MM-GG):",localDateValue(new Date()));if(date===null)return;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){alert("Data non valida. Usa AAAA-MM-GG.");return;}
   const item={id:Date.now().toString(36)+Math.random().toString(36).slice(2,7),title:title.trim(),date};
   if(kind==="event"){item.place=prompt("Luogo (facoltativo):")||"";item.pinned=confirm("Mostrare questo evento come promemoria nella testata blu?");state.events.push(item);}
-  else {const a=prompt("Avvisare con popup quanti giorni prima? Lascia vuoto per nessun avviso:","");if(a===null)return;item.alertDays=a.trim()===""?null:Math.max(0,Math.min(365,Number(a)||0));state.deadlines.push(item);}
+  else {
+    const a=prompt("Da quanti giorni prima iniziare gli avvisi? (0-365, vuoto = disattivati):", "7");if(a===null)return;
+    item.alertDays=a.trim()===""?null:Math.max(0,Math.min(365,Number(a)||0));
+    if(item.alertDays!==null){const r=prompt("Ripetere l'avviso ogni quanti giorni? Scegli 1, 2, 3, 7, 14 o 30:","1");if(r===null)return;const n=Number(r);if(![1,2,3,7,14,30].includes(n)){alert("Intervallo non valido. Uso ogni 1 giorno.");item.repeatEvery=1;}else item.repeatEvery=n;}
+    state.deadlines.push(item);
+  }
   if(saveState())renderEvents();
 }
 $("addEvent").onclick=()=>addItem("event");$("addDeadline").onclick=()=>addItem("deadline");
@@ -424,7 +441,7 @@ $("closeSearch").onclick=()=>$("searchPage").classList.add("hidden");
 
 function applyAccessMode(){
   document.body.classList.toggle("admin-mode",adminMode);
-  const ids=["newName","add","manage","exportMonthly","exportShifts","export","backup","restore","backupPeople","restorePeople","backupRecords","restoreRecords","clearHistory","addEvent","addDeadline"];
+  const ids=["newName","add","manage","exportMonthly","exportShifts","export","backup","restore","backupPeople","restorePeople","backupRecords","restoreRecords","clearHistory"];
   ids.forEach(id=>{const el=$(id);if(el)el.disabled=!adminMode;});
   document.querySelectorAll("#managePeople button").forEach(el=>el.disabled=!adminMode);
   $("adminMode").textContent=adminMode?"Esci modalità Messia":"Modalità Messia";

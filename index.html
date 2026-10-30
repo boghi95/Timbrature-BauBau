@@ -189,6 +189,34 @@ body.admin-mode #layoutSettingsPanel{display:block}
  body:not(.admin-mode).layout-divisa #workspace h2{font-size:14px}
  body:not(.admin-mode).layout-divisa #workspace button{padding:8px 5px;font-size:13px}
 }
+
+/* v16: telefoni in orizzontale / viewport Android basso. Evita che il layout fisso schiacci il contenuto sotto l'header. */
+@media (orientation: landscape) and (max-height: 520px) {
+  body:not(.admin-mode) { overflow-y:auto !important; overflow-x:hidden !important; height:auto !important; }
+  body:not(.admin-mode) main { height:auto !important; min-height:0 !important; display:flex !important; flex-direction:column !important; }
+  body:not(.admin-mode) main > header { flex:0 0 auto !important; }
+  body:not(.admin-mode) #workspace {
+    display:flex !important; flex-direction:column !important; flex:0 0 auto !important;
+    height:auto !important; min-height:0 !important; overflow:visible !important;
+  }
+  body:not(.admin-mode) #workspace > .panel {
+    display:flex !important; flex-direction:column !important; flex:0 0 auto !important;
+    height:auto !important; min-height:220px !important; overflow:visible !important;
+  }
+  body:not(.admin-mode) #workspace #people {
+    flex:0 0 auto !important; height:auto !important; max-height:38vh !important;
+    min-height:100px !important; overflow-y:auto !important; -webkit-overflow-scrolling:touch !important;
+  }
+  body:not(.admin-mode) #workspace #eventList {
+    flex:0 0 auto !important; height:auto !important; max-height:38vh !important;
+    min-height:90px !important; overflow-y:auto !important; -webkit-overflow-scrolling:touch !important;
+  }
+  body:not(.admin-mode).layout-schede #workspace { display:block !important; overflow:visible !important; }
+  body:not(.admin-mode).layout-schede #workspace > .panel { display:none !important; min-height:220px !important; }
+  body:not(.admin-mode).layout-schede #workspace > .panel.tab-active { display:flex !important; }
+  body:not(.admin-mode).layout-divisa #workspace { display:flex !important; flex-direction:column !important; }
+  body:not(.admin-mode).layout-divisa #workspace > .panel { display:flex !important; }
+}
 </style>
 </head>
 <body>

@@ -128,6 +128,11 @@ body.admin-mode #workspace>.panel{overflow:visible}
 #searchPage{position:fixed;inset:0;background:#f3f5f8;z-index:1500;padding:16px;overflow:auto}
 #searchPage .search-results{max-width:760px;margin:0 auto}
 
+/* FIX: il pulsante Messia deve essere sempre visibile */
+#adminMode{display:inline-block!important;visibility:visible!important;position:relative;z-index:5}
+/* Inserimento eventi/scadenze disponibile solo in Modalità Messia */
+body:not(.admin-mode) #addEvent, body:not(.admin-mode) #addDeadline{display:none!important}
+body.admin-mode #addEvent, body.admin-mode #addDeadline{display:inline-block!important}
 </style>
 </head>
 <body>
@@ -319,7 +324,7 @@ function render(){
   $("count").textContent="Timbrature salvate: "+state.records.length+" (nello storico qui sopra mostro le ultime 100).";
   $("empty").classList.toggle("hidden",records.length>0);
   const mp=$("managePeople");mp.innerHTML="";
-  state.people.forEach(name=>{
+  sortedPeople().forEach(name=>{
     const row=document.createElement("div");row.className="row";row.style.margin="6px 0";
     const label=document.createElement("span");label.textContent=name+(adminMode?" · codice: "+(state.codes?.[name]||"NON IMPOSTATO"):"");label.style.flex="1";label.style.alignSelf="center";
     const codeBtn=document.createElement("button");codeBtn.className="secondary";codeBtn.textContent="Imposta codice";codeBtn.disabled=!adminMode;
@@ -425,6 +430,7 @@ function applyAccessMode(){
   document.querySelectorAll("#managePeople button").forEach(el=>el.disabled=!adminMode);
   $("adminMode").textContent=adminMode?"Esci modalità Messia":"Modalità Messia";
   if(!adminMode) $("manageArea").classList.add("hidden");
+  renderEvents();
 }
 // Nell'interfaccia normale, toccare il titolo apre l'accesso Messia senza mostrare un pulsante dedicato.
 document.querySelector("header h1").title="Tocca qui per accedere alla modalità Messia";
@@ -626,7 +632,7 @@ function download(blob,name){
   a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function tick(){$("clock").textContent=new Date().toLocaleString("it-IT",{weekday:"long",day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});}
-setInterval(tick,1000);tick();render();
+setInterval(tick,1000);tick();render();renderEvents();
 </script>
 
 <script>

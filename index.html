@@ -217,6 +217,45 @@ body.admin-mode #layoutSettingsPanel{display:block}
   body:not(.admin-mode).layout-divisa #workspace { display:flex !important; flex-direction:column !important; }
   body:not(.admin-mode).layout-divisa #workspace > .panel { display:flex !important; }
 }
+
+
+/* v17: separazione rigida delle schede su smartphone.
+   In modalità a schede deve essere visibile un solo pannello alla volta. */
+@media (max-width: 700px) {
+  body:not(.admin-mode).layout-schede #workspace {
+    display: block !important;
+    position: relative !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+  body:not(.admin-mode).layout-schede #workspace > section.panel {
+    display: none !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+  body:not(.admin-mode).layout-schede #workspace > section.panel.tab-active {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+  body:not(.admin-mode).layout-schede #workspace > section.panel:not(.tab-active) * {
+    display: none !important;
+  }
+  body:not(.admin-mode).layout-schede #workspace > section.panel.tab-active #people,
+  body:not(.admin-mode).layout-schede #workspace > section.panel.tab-active #eventList {
+    flex: 1 1 0 !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+  }
+}
+
 </style>
 </head>
 <body>

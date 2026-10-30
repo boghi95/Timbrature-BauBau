@@ -104,13 +104,13 @@ body:not(.admin-mode) main{max-width:none;height:calc(100dvh - 20px);display:fle
 body:not(.admin-mode) main>header{flex:0 0 auto}
 body:not(.admin-mode) #searchBar{flex:0 0 auto}
 body:not(.admin-mode) #alertBanner{flex:0 0 auto}
-body:not(.admin-mode) #workspace{display:grid;grid-template-columns:1fr;grid-template-rows:minmax(180px,1fr) minmax(160px,1fr);gap:10px;flex:1;min-height:0}
+body:not(.admin-mode) #workspace{display:grid;grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:10px;flex:1 1 0;min-height:0;overflow:hidden}
 body:not(.admin-mode) #workspace>.panel{margin:0;min-height:0;overflow:hidden;display:flex;flex-direction:column}
-body:not(.admin-mode) #workspace #people{flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start}
+body:not(.admin-mode) #workspace #people{display:grid;flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;align-content:start;grid-auto-rows:max-content;overscroll-behavior:contain;padding:3px}
 body:not(.admin-mode) #workspace #punch{flex:0 0 auto}
 .person{white-space:normal;overflow-wrap:anywhere;word-break:normal;min-width:0;line-height:1.15;padding:10px 7px;font-size:clamp(12px,2.8vw,16px)}
-body:not(.admin-mode) #workspace #people{grid-template-columns:repeat(auto-fit,minmax(125px,1fr))}
-body:not(.admin-mode) #workspace #eventsPanel .event-list{display:grid;gap:8px}
+body:not(.admin-mode) #workspace #people{grid-template-columns:repeat(auto-fit,minmax(min(125px,100%),1fr))}
+body:not(.admin-mode) #workspace #eventsPanel .event-list{display:grid;gap:8px;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 body:not(.admin-mode) #workspace #eventsPanel .event-item{padding:10px;border-radius:10px;background:#f3f5f8}
 body.admin-mode main{height:auto;display:block;max-width:850px}
 body.admin-mode #workspace{display:block}
@@ -131,7 +131,10 @@ body.admin-mode #workspace>.panel{overflow:visible}
 #searchPage .search-results{max-width:760px;margin:0 auto}
 
 /* FIX: il pulsante Messia deve essere sempre visibile */
-#adminMode{display:inline-block!important;visibility:visible!important;position:relative;z-index:5}
+#adminMode{display:inline-block!important;visibility:visible!important;opacity:1!important;position:relative;z-index:5;min-height:48px;margin-top:12px;background:#ffdf43;color:#242424;border:2px solid #fff;padding:12px 16px}
+header .header-info{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+body:not(.admin-mode) #workspace #punch{position:relative;z-index:2;display:block;visibility:visible;min-height:56px}
+body:not(.admin-mode) #workspace>.panel:first-child{min-height:0}
 /* I comandi calendario restano visibili in home; per salvare serve accesso Messia. */
 #eventsPanel .row{display:flex!important}
 #eventsPanel .row button{min-width:0}
@@ -172,7 +175,7 @@ body.admin-mode #workspace>.panel{overflow:visible}
   <input id="newName" maxlength="80" placeholder="Es. Mario Rossi">
   <div class="row">
     <button id="add" class="secondary">Aggiungi cinofilo</button>
-    <button id="manage" class="secondary">Mostra/nascondi elenco</button>
+    <button id="manage" class="secondary">Nascondi/mostra elenco</button>
   </div>
   <div id="manageArea" class="hidden">
     <p class="warning">Per eliminare un cinofilo, premi il pulsante accanto al suo nome. Le sue timbrature già registrate non vengono cancellate.</p>
@@ -328,7 +331,7 @@ function render(){
   const mp=$("managePeople");mp.innerHTML="";
   sortedPeople().forEach(name=>{
     const row=document.createElement("div");row.className="row";row.style.margin="6px 0";
-    const label=document.createElement("span");label.textContent=name+(adminMode?" · codice: "+(state.codes?.[name]||"NON IMPOSTATO"):"");label.style.flex="1";label.style.alignSelf="center";
+    const label=document.createElement("span");label.textContent=name+(adminMode?" · codice: "+(state.codes?.[name]||"NON IMPOSTATO"):"");label.style.flex="1 1 180px";label.style.minWidth="0";label.style.overflowWrap="anywhere";label.style.alignSelf="center";
     const codeBtn=document.createElement("button");codeBtn.className="secondary";codeBtn.textContent="Imposta codice";codeBtn.disabled=!adminMode;
     codeBtn.onclick=()=>{if(!adminMode)return;const c=prompt("Imposta un codice personale di 3 cifre per "+name+":",state.codes?.[name]||"");if(c===null)return;if(!/^\d{3}$/.test(c)){alert("Il codice deve essere composto da esattamente 3 cifre.");return;}state.codes=state.codes||{};state.codes[name]=c;if(saveState())render();};
     const del=document.createElement("button");del.className="secondary";del.textContent="Rimuovi";del.disabled=!adminMode;
@@ -373,7 +376,7 @@ function renderEvents(){
     const meta=document.createElement("small");meta.textContent=(item.kind==="event"?"Evento":"Scadenza")+" · "+dateLabel(item.date)+(item.place?" · "+item.place:"");el.appendChild(meta);
     if(item.kind==="deadline" && item.alertDays!==null && item.alertDays!==undefined){const freq=[1,2,3,7,14,30].includes(Number(item.repeatEvery))?Number(item.repeatEvery):1;const freqText=document.createElement("small");freqText.textContent="Avvisi da "+item.alertDays+" giorni prima, ogni "+freq+ (freq===1?" giorno":" giorni");el.appendChild(freqText);const diff=Math.round((new Date(item.date+"T12:00:00")-new Date(today+"T12:00:00"))/86400000);if(shouldAlertDeadline(item,diff)){const a=document.createElement("small");a.textContent=diff===0?"Scade oggi":diff<0?"Scaduta":"Mancano "+diff+" giorni";el.appendChild(a);}}
     if(item.kind==="event" && item.pinned){const sm=document.createElement("small");sm.textContent="Promemoria visibile nella testata";el.appendChild(sm);}
-    if(adminMode){
+    {
       const actions=document.createElement("div");actions.className="event-actions";
       if(item.kind==="event"){const pin=document.createElement("button");pin.className="secondary";pin.textContent=item.pinned?"Togli promemoria":"Mostra in testata";pin.onclick=()=>{const e=state.events.find(x=>x.id===item.id);if(e){e.pinned=!e.pinned;saveState();renderEvents();}};actions.appendChild(pin);}
       const edit=document.createElement("button");edit.className="secondary";edit.textContent="Modifica";edit.onclick=()=>editItem(item.kind,item.id);actions.appendChild(edit);
@@ -401,7 +404,6 @@ function editItem(kind,id){
   saveState();renderEvents();
 }
 function addItem(kind){
-  if(!adminMode){alert("Per aggiungere eventi o scadenze, entra prima in Modalità Messia. I pulsanti restano qui nel calendario per comodità.");return;}
   const title=prompt(kind==="event"?"Titolo dell'evento:":"Titolo della scadenza:");if(title===null||!title.trim())return;
   const date=prompt("Data (AAAA-MM-GG):",localDateValue(new Date()));if(date===null)return;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){alert("Data non valida. Usa AAAA-MM-GG.");return;}
@@ -445,7 +447,7 @@ function applyAccessMode(){
   ids.forEach(id=>{const el=$(id);if(el)el.disabled=!adminMode;});
   document.querySelectorAll("#managePeople button").forEach(el=>el.disabled=!adminMode);
   $("adminMode").textContent=adminMode?"Esci modalità Messia":"Modalità Messia";
-  if(!adminMode) $("manageArea").classList.add("hidden");
+  if(!adminMode) $("manageArea").classList.add("hidden"); else $("manageArea").classList.remove("hidden");
   renderEvents();
 }
 // Nell'interfaccia normale, toccare il titolo apre l'accesso Messia senza mostrare un pulsante dedicato.

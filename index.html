@@ -546,9 +546,24 @@ $("addEvent").onclick=()=>addItem("event");$("addDeadline").onclick=()=>addItem(
 function doSearch(){
  const q=$("globalSearch").value.trim().toLocaleLowerCase("it");if(!q)return;
  const results=[];
- state.people.forEach(n=>{if(n.toLocaleLowerCase("it").includes(q)||(state.codes?.[n]||"").includes(q))results.push({type:"Cinofilo",title:n,detail:"Codice: "+(state.codes?.[n]||"non impostato")});});
- state.events.forEach(e=>{if((e.title+" "+(e.place||"")+" "+e.date).toLocaleLowerCase("it").includes(q))results.push({type:"Evento",title:e.title,detail:dateLabel(e.date)+(e.place?" · "+e.place:"")});});
- state.deadlines.forEach(d=>{if((d.title+" "+d.date).toLocaleLowerCase("it").includes(q))results.push({type:"Scadenza",title:d.title,detail:dateLabel(d.date)});});
+ // Ricerca nei dati: cinofili, codici, eventi e scadenze.
+ state.people.forEach(n=>{if(n.toLocaleLowerCase("it").includes(q)||(state.codes?.[n]||"").includes(q))results.push({type:"Cinofilo",title:n,detail:"Codice: "+(state.codes?.[n]||"non impostato"),target:"peoplePanel",person:n});});
+ state.events.forEach(e=>{if((e.title+" "+(e.place||"")+" "+e.date).toLocaleLowerCase("it").includes(q))results.push({type:"Evento",title:e.title,detail:dateLabel(e.date)+(e.place?" · "+e.place:""),target:"eventsPanel"});});
+ state.deadlines.forEach(d=>{if((d.title+" "+d.date).toLocaleLowerCase("it").includes(q))results.push({type:"Scadenza",title:d.title,detail:dateLabel(d.date),target:"eventsPanel"});});
+ // In Messia la ricerca comprende anche tutte le funzioni, i pulsanti e le sezioni amministrative.
+ if(adminMode){
+   document.querySelectorAll("main button, main h2, main h3, main label, main select option").forEach(el=>{
+     if(el.id==="searchClear"||el.id==="adminMode")return;
+     const text=(el.innerText||el.textContent||el.value||"").trim();
+     if(!text||!text.toLocaleLowerCase("it").includes(q))return;
+     const actionable=el.closest("button")||el;
+     const target=actionable.id? actionable : (el.closest("section")||el.closest(".panel")||el);
+     if(!target.id && !target.closest("section"))return;
+     const id=target.id || (target.closest("section")||target.closest(".panel")||target).id;
+     if(results.some(r=>r.target===id && r.title===text))return;
+     results.push({type:"Funzione Messia",title:text,detail:"Apri questa funzione",target:id,button:actionable.tagName==="BUTTON"?actionable.id:null});
+   });
+ }
  const box=$("searchResults");box.innerHTML="";
  if(!results.length){box.textContent="Nessun risultato.";}else results.forEach(r=>{
    const el=document.createElement("button");el.type="button";el.className="event-item search-result";
@@ -556,8 +571,8 @@ function doSearch(){
    const b=document.createElement("strong");b.textContent=r.title;const sm=document.createElement("small");sm.textContent=r.type+" · "+r.detail;el.append(b,sm);
    el.addEventListener("click",()=>{
      $("searchPage").classList.add("hidden");
-     if(r.type==="Cinofilo") { selected=r.title; render(); }
-     else { document.getElementById("eventsPanel").scrollIntoView({behavior:"smooth",block:"start"}); }
+     if(r.person){selected=r.person;render();}
+     const target=$(r.target);if(target){target.scrollIntoView({behavior:"smooth",block:"center"});if(r.button){const btn=$(r.button);if(btn){btn.focus({preventScroll:true});}}}
    });
    box.appendChild(el);
  });
@@ -580,10 +595,10 @@ function applyAccessMode(){
 document.querySelector("header h1").title="Tocca qui per accedere alla modalità Messia";
 document.querySelector("header h1").addEventListener("click",()=>$("adminMode").click());
 $("adminMode").onclick=()=>{
-  if(adminMode){adminMode=false;applyAccessMode();renderEvents();return;}
+  if(adminMode){adminMode=false;applyAccessMode();renderEvents();$("status").textContent="";return;}
   const code=prompt("Inserisci il codice Messia:");
   if(code===null)return;
-  if(code===ADMIN_CODE){adminMode=true;applyAccessMode();renderEvents();$("status").textContent="Modalità Messia attivata.";}
+  if(code===ADMIN_CODE){adminMode=true;applyAccessMode();renderEvents();$("status").textContent="";}
   else alert("Codice errato.");
 };
 $("clearHistory").onclick=()=>{

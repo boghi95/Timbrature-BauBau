@@ -119,6 +119,7 @@ body.admin-mode #workspace>.panel{overflow:visible}
  body:not(.admin-mode) #workspace{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
 }
 #searchBar{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+body.hide-home-search:not(.admin-mode) #searchBar{display:none!important}
 #searchBar input{margin:0}
 #alertBanner{background:#b83232;color:white;padding:10px 14px;border-radius:10px;margin:0 0 8px;font-weight:bold}
 #alertBanner.hidden{display:none}
@@ -234,6 +235,13 @@ body.admin-mode #layoutSettingsPanel{display:block}
     <option value="verticale">Verticale: cinofili sopra, calendario sotto</option>
   </select>
   <button id="saveLayout" class="secondary" type="button">Salva visualizzazione</button>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e3e7ee">
+    <label style="display:flex;gap:10px;align-items:flex-start;font-weight:bold;line-height:1.4">
+      <input id="showSearchHome" type="checkbox" style="width:auto;flex:0 0 auto;margin-top:3px">
+      <span>Mostra la barra di ricerca nella home</span>
+    </label>
+    <p class="warning">Se la disattivi, la ricerca resta comunque sempre disponibile in Modalità Messia.</p>
+  </div>
 </section>
 
 <section class="panel">
@@ -337,6 +345,22 @@ let adminMode = false; // per sicurezza si riattiva solo inserendo il codice a o
 const ADMIN_CODE = "1234";
 const $ = id => document.getElementById(id);
 const LAYOUT_KEY = "timbrature_baubau_layout_v12";
+const SEARCH_HOME_KEY = "timbrature_baubau_search_home_v14";
+function showSearchInHome(){
+  try{return localStorage.getItem(SEARCH_HOME_KEY)!=="false";}catch(e){return true;}
+}
+function applySearchVisibility(){
+  const enabled=showSearchInHome();
+  document.body.classList.toggle("hide-home-search",!enabled);
+  const checkbox=$("showSearchHome");
+  if(checkbox)checkbox.checked=enabled;
+}
+function saveSearchVisibility(){
+  const checkbox=$("showSearchHome");
+  const enabled=checkbox ? checkbox.checked : true;
+  try{localStorage.setItem(SEARCH_HOME_KEY,String(enabled));}catch(e){}
+  applySearchVisibility();
+}
 let activeTab = "people";
 function getLayout(){
   let mode="auto";
@@ -753,6 +777,8 @@ function download(blob,name){
 }
 function tick(){$("clock").textContent=new Date().toLocaleString("it-IT",{weekday:"long",day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});}
 $("saveLayout").addEventListener("click",saveLayoutChoice);
+const searchHomeCheckbox=$("showSearchHome");if(searchHomeCheckbox)searchHomeCheckbox.addEventListener("change",saveSearchVisibility);
+applySearchVisibility();
 $("showPeopleTab").addEventListener("click",()=>{activeTab="people";applyLayout();});
 $("showEventsTab").addEventListener("click",()=>{activeTab="events";applyLayout();});
 window.addEventListener("resize",()=>{if(getLayout()==="auto")applyLayout();});

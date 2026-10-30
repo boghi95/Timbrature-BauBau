@@ -138,6 +138,29 @@ body:not(.admin-mode) #workspace>.panel:first-child{min-height:0}
 /* I comandi calendario restano visibili in home; per salvare serve accesso Messia. */
 #eventsPanel .row{display:flex!important}
 #eventsPanel .row button{min-width:0}
+
+/* v11: layout scrollabile affidabile e controlli sempre raggiungibili */
+@media (max-width: 9999px) {
+  body:not(.admin-mode) { overflow:hidden; }
+  body:not(.admin-mode) main { height:calc(100vh - 20px); min-height:0; }
+  @supports (height: 100dvh) { body:not(.admin-mode) main { height:calc(100dvh - 20px); } }
+  body:not(.admin-mode) #workspace { flex:1 1 0; min-height:0; }
+  body:not(.admin-mode) #workspace > .panel:first-child,
+  body:not(.admin-mode) #workspace > #eventsPanel { min-height:0; display:flex!important; flex-direction:column; position:relative; }
+  body:not(.admin-mode) #workspace #people { display:grid!important; flex:1 1 0; height:0; min-height:0; overflow-y:scroll!important; overflow-x:hidden!important; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; }
+  body:not(.admin-mode) #workspace #eventList { display:block; flex:1 1 0; height:0; min-height:0; overflow-y:scroll!important; overflow-x:hidden; -webkit-overflow-scrolling:touch; touch-action:pan-y; overscroll-behavior-y:contain; }
+  body:not(.admin-mode) #workspace #punch { flex:0 0 auto; position:relative; z-index:20; pointer-events:auto; }
+  body:not(.admin-mode) #workspace #last,
+  body:not(.admin-mode) #workspace #status,
+  body:not(.admin-mode) #workspace #eventsPanel .row,
+  body:not(.admin-mode) #workspace #noEvents { flex:0 0 auto; }
+  body:not(.admin-mode) #adminMode { display:inline-block!important; visibility:visible!important; opacity:1!important; position:relative; z-index:50; pointer-events:auto; }
+  body:not(.admin-mode) #eventsPanel .row { position:relative; z-index:20; display:flex!important; pointer-events:auto; }
+  body:not(.admin-mode) #eventsPanel .row button,
+  body:not(.admin-mode) #eventList button { position:relative; z-index:21; pointer-events:auto; }
+  body:not(.admin-mode) .person { min-height:54px; white-space:normal; overflow-wrap:anywhere; }
+}
+
 </style>
 </head>
 <body>

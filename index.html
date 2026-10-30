@@ -438,7 +438,7 @@ function getLayout(){
 function effectiveLayout(){
   const mode=getLayout();
   if(mode!=="auto")return mode;
-  return window.matchMedia("(min-width: 700px) and (orientation: landscape)").matches ? "divisa" : "schede";
+  return window.matchMedia("(min-width: 700px) and (orientation: landscape) and (pointer: fine)").matches ? "divisa" : "schede";
 }
 function applyLayout(){
   const mode=getLayout();

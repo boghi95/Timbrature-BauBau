@@ -256,6 +256,12 @@ body.admin-mode #layoutSettingsPanel{display:block}
   }
 }
 
+/* v21: possibilità di nascondere gli eventi solo dalla home, senza cancellarne i dati. */
+body.hide-home-events:not(.admin-mode) #eventsPanel { display:none !important; }
+body.hide-home-events:not(.admin-mode) #workspaceTabs #showEventsTab { display:none !important; }
+body.hide-home-events:not(.admin-mode) #workspace { grid-template-columns:minmax(0,1fr) !important; grid-template-rows:minmax(0,1fr) !important; }
+body.hide-home-events:not(.admin-mode).layout-verticale #workspace { display:flex !important; flex-direction:column !important; }
+
 </style>
 </head>
 <body>
@@ -281,6 +287,8 @@ body.admin-mode #layoutSettingsPanel{display:block}
   <div id="people" class="people"></div>
   <p id="last" class="warning">Seleziona un nome per iniziare.</p>
   <button id="punch" class="action" disabled>Seleziona un cinofilo</button>
+  <button id="nfcScanToggle" class="secondary" type="button">Attiva lettura NFC</button>
+  <div id="nfcStatus" role="status" aria-live="polite">NFC non attivo.</div>
   <div id="status" role="status"></div>
 </section>
 <section class="panel" id="eventsPanel">
@@ -304,10 +312,25 @@ body.admin-mode #layoutSettingsPanel{display:block}
   <button id="saveLayout" class="secondary" type="button">Salva visualizzazione</button>
   <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e3e7ee">
     <label style="display:flex;gap:10px;align-items:flex-start;font-weight:bold;line-height:1.4">
+      <input id="showEventsHome" type="checkbox" style="width:auto;flex:0 0 auto;margin-top:3px">
+      <span>Mostra eventi e scadenze nella home</span>
+    </label>
+    <p class="warning">Se disattivata, la sezione Eventi e scadenze e la relativa scheda vengono nascoste nella home. Gli eventi salvati non vengono cancellati.</p>
+  </div>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e3e7ee">
+    <label style="display:flex;gap:10px;align-items:flex-start;font-weight:bold;line-height:1.4">
       <input id="showSearchHome" type="checkbox" style="width:auto;flex:0 0 auto;margin-top:3px">
       <span>Mostra la barra di ricerca nella home</span>
     </label>
     <p class="warning">Se la disattivi, la ricerca resta comunque sempre disponibile in Modalità Messia.</p>
+  </div>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e3e7ee">
+    <h3>Timbratura NFC</h3>
+    <label style="display:flex;gap:10px;align-items:flex-start;font-weight:bold;line-height:1.4">
+      <input id="nfcVisualConfirm" type="checkbox" style="width:auto;flex:0 0 auto;margin-top:3px">
+      <span>Mostra conferma visiva dopo una timbratura NFC</span>
+    </label>
+    <p class="warning">Per usare l'NFC, apri l'app in Chrome su Android, attiva la lettura dalla home e avvicina l'adesivo. La scansione richiede l'app aperta e lo schermo acceso. La timbratura manuale resta disponibile.</p>
   </div>
 </section>
 
@@ -413,6 +436,24 @@ const ADMIN_CODE = "1234";
 const $ = id => document.getElementById(id);
 const LAYOUT_KEY = "timbrature_baubau_layout_v12";
 const SEARCH_HOME_KEY = "timbrature_baubau_search_home_v14";
+const EVENTS_HOME_KEY = "timbrature_baubau_events_home_v21";
+function showEventsInHome(){
+  try{return localStorage.getItem(EVENTS_HOME_KEY)!=="false";}catch(e){return true;}
+}
+function applyEventsHomeVisibility(){
+  const enabled=showEventsInHome();
+  document.body.classList.toggle("hide-home-events",!enabled);
+  const checkbox=$("showEventsHome");
+  if(checkbox)checkbox.checked=enabled;
+  if(!enabled && activeTab==="events")activeTab="people";
+}
+function saveEventsHomeVisibility(){
+  const checkbox=$("showEventsHome");
+  const enabled=checkbox ? checkbox.checked : true;
+  try{localStorage.setItem(EVENTS_HOME_KEY,String(enabled));}catch(e){}
+  applyEventsHomeVisibility();
+  applyLayout();
+}
 function showSearchInHome(){
   try{return localStorage.getItem(SEARCH_HOME_KEY)!=="false";}catch(e){return true;}
 }
@@ -441,6 +482,7 @@ function effectiveLayout(){
   return window.matchMedia("(min-width: 700px) and (orientation: landscape) and (pointer: fine)").matches ? "divisa" : "schede";
 }
 function applyLayout(){
+  applyEventsHomeVisibility();
   const mode=getLayout();
   document.body.classList.remove("layout-divisa","layout-schede","layout-verticale");
   document.body.classList.add("layout-"+effectiveLayout());
@@ -458,7 +500,8 @@ function applyLayout(){
     else peoplePanel.style.removeProperty("display");
   }
   if(eventsPanel){
-    if(selectedLayout==="schede") eventsPanel.style.setProperty("display", activeTab==="events" ? "flex" : "none", "important");
+    if(!showEventsInHome()) eventsPanel.style.setProperty("display","none","important");
+    else if(selectedLayout==="schede") eventsPanel.style.setProperty("display", activeTab==="events" ? "flex" : "none", "important");
     else eventsPanel.style.removeProperty("display");
   }
   const p=$("showPeopleTab"),e=$("showEventsTab");
@@ -478,10 +521,10 @@ function loadState(){
     const raw = localStorage.getItem(KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      if(Array.isArray(parsed.people) && Array.isArray(parsed.records)) return {...parsed, events:parsed.events||[], deadlines:parsed.deadlines||[], archivedDeadlines:parsed.archivedDeadlines||[]};
+      if(Array.isArray(parsed.people) && Array.isArray(parsed.records)) return {...parsed, events:parsed.events||[], deadlines:parsed.deadlines||[], archivedDeadlines:parsed.archivedDeadlines||[], nfcTags:parsed.nfcTags||{}, nfcSettings:{visualConfirm:parsed.nfcSettings?.visualConfirm!==false}};
     }
   }catch(e){}
-  return {people: DEFAULT_NAMES.slice(), records: [], events: [], deadlines: [], archivedDeadlines: []};
+  return {people: DEFAULT_NAMES.slice(), records: [], events: [], deadlines: [], archivedDeadlines: [], nfcTags:{}, nfcSettings:{visualConfirm:true}};
 }
 function saveState(){
   try{ localStorage.setItem(KEY, JSON.stringify(state)); return true; }
@@ -533,13 +576,18 @@ function render(){
   $("empty").classList.toggle("hidden",records.length>0);
   const mp=$("managePeople");mp.innerHTML="";
   sortedPeople().forEach(name=>{
-    const row=document.createElement("div");row.className="row";row.style.margin="6px 0";
+    const row=document.createElement("div");row.className="row";row.style.margin="6px 0";row.style.flexWrap="wrap";
     const label=document.createElement("span");label.textContent=name+(adminMode?" · codice: "+(state.codes?.[name]||"NON IMPOSTATO"):"");label.style.flex="1 1 180px";label.style.minWidth="0";label.style.overflowWrap="anywhere";label.style.alignSelf="center";
     const codeBtn=document.createElement("button");codeBtn.className="secondary";codeBtn.textContent="Imposta codice";codeBtn.disabled=!adminMode;
     codeBtn.onclick=()=>{if(!adminMode)return;const c=prompt("Imposta un codice personale di 3 cifre per "+name+":",state.codes?.[name]||"");if(c===null)return;if(!/^\d{3}$/.test(c)){alert("Il codice deve essere composto da esattamente 3 cifre.");return;}state.codes=state.codes||{};state.codes[name]=c;if(saveState())render();};
+    const tagBtn=document.createElement("button");tagBtn.className="secondary";tagBtn.textContent=state.nfcTags?.[name]?"Sostituisci adesivo NFC":"Associa adesivo NFC";tagBtn.disabled=!adminMode;
+    if(state.nfcTags?.[name]){tagBtn.title="UID associato: "+state.nfcTags[name];}
+    tagBtn.onclick=()=>{if(adminMode)associateNfcTag(name);};
+    const clearTag=document.createElement("button");clearTag.className="secondary";clearTag.textContent="Scollega NFC";clearTag.disabled=!adminMode||!state.nfcTags?.[name];
+    clearTag.onclick=()=>{if(!adminMode||!state.nfcTags?.[name])return;if(confirm("Scollegare l'adesivo NFC da "+name+"?")){delete state.nfcTags[name];saveState();render();}};
     const del=document.createElement("button");del.className="secondary";del.textContent="Rimuovi";del.disabled=!adminMode;
-    del.onclick=()=>{if(!adminMode)return;if(confirm("Rimuovere "+name+" dall'elenco? Le sue timbrature esistenti resteranno nello storico.")){state.people=state.people.filter(n=>n!==name);if(state.codes)delete state.codes[name];if(selected===name)selected="";saveState();render();}};
-    row.append(label,codeBtn,del);mp.appendChild(row);
+    del.onclick=()=>{if(!adminMode)return;if(confirm("Rimuovere "+name+" dall'elenco? Le sue timbrature esistenti resteranno nello storico.")){state.people=state.people.filter(n=>n!==name);if(state.codes)delete state.codes[name];if(state.nfcTags)delete state.nfcTags[name];if(selected===name)selected="";saveState();render();}};
+    row.append(label,codeBtn,tagBtn,clearTag,del);mp.appendChild(row);
   });
   renderMonthly();
   applyAccessMode();
@@ -697,6 +745,101 @@ function chooseBau(){
   });
 }
 
+// NFC Web API: supportata principalmente da Chrome su Android e solo con HTTPS.
+let nfcReader=null, nfcAbort=null, nfcRunning=false, nfcBusy=false;
+const nfcLastRead=new Map();
+function normalizeUid(uid){return String(uid||"").trim().toLowerCase().replace(/:/g,"-");}
+function nfcSupported(){return typeof window.NDEFReader!=="undefined";}
+function setNfcStatus(message){const el=$("nfcStatus");if(el)el.textContent=message;}
+function saveNfcSettings(){
+  state.nfcSettings=state.nfcSettings||{};
+  state.nfcSettings.visualConfirm=!!$("nfcVisualConfirm")?.checked;
+  saveState();
+}
+async function startNfcScan(){
+  if(!nfcSupported()){setNfcStatus("NFC Web non supportato da questo browser. Prova Chrome su Android.");return;}
+  if(!window.isSecureContext){setNfcStatus("L'NFC richiede una connessione HTTPS.");return;}
+  if(nfcRunning){setNfcStatus("Lettura NFC già attiva. Avvicina un adesivo associato.");return;}
+  try{
+    nfcAbort=new AbortController();
+    nfcReader=new NDEFReader();
+    await nfcReader.scan({signal:nfcAbort.signal});
+    nfcRunning=true;
+    $("nfcScanToggle").textContent="Disattiva lettura NFC";
+    setNfcStatus("Lettura NFC attiva. Avvicina un adesivo personale al telefono.");
+    nfcReader.addEventListener("reading",event=>{
+      const uid=normalizeUid(event.serialNumber);
+      if(!uid){setNfcStatus("Tag letto, ma il browser non ha restituito l'UID. Prova a preparare il tag NDEF o un altro adesivo.");return;}
+      handleNfcRead(uid).catch(err=>setNfcStatus("Errore nella timbratura NFC: "+(err?.message||"errore sconosciuto")));
+    });
+    nfcReader.addEventListener("readingerror",()=>setNfcStatus("Impossibile leggere questo tag NFC. Riprova avvicinandolo al retro del telefono."));
+  }catch(err){
+    nfcRunning=false;
+    $("nfcScanToggle").textContent="Attiva lettura NFC";
+    const msg=err?.name==="NotAllowedError"?"Permesso NFC negato. Abilita NFC e autorizza Chrome.":(err?.message||"Impossibile avviare la lettura NFC.");
+    setNfcStatus(msg);
+  }
+}
+function stopNfcScan(){
+  try{if(nfcAbort)nfcAbort.abort();}catch(e){}
+  nfcAbort=null;nfcReader=null;nfcRunning=false;
+  $("nfcScanToggle").textContent="Attiva lettura NFC";
+  setNfcStatus("Lettura NFC disattivata.");
+}
+async function associateNfcTag(name){
+  if(!adminMode)return;
+  if(!nfcSupported()){alert("Questa funzione richiede Chrome su Android con NFC attivo e sito HTTPS.");return;}
+  if(nfcRunning)stopNfcScan();
+  setNfcStatus("Associazione in corso per "+name+": avvicina l'adesivo NFC.");
+  const controller=new AbortController();
+  try{
+    const reader=new NDEFReader();
+    await reader.scan({signal:controller.signal});
+    const uid=await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>{controller.abort();reject(new Error("Tempo scaduto: nessun tag letto."));},30000);
+      reader.addEventListener("reading",event=>{clearTimeout(timer);resolve(normalizeUid(event.serialNumber));controller.abort();},{once:true,signal:controller.signal});
+      reader.addEventListener("readingerror",()=>setNfcStatus("Tag non leggibile. Riprova con un adesivo NDEF compatibile."),{signal:controller.signal});
+    });
+    if(!uid){alert("Il browser non ha fornito l'UID del tag. Non è stato associato nulla.");setNfcStatus("Associazione non riuscita: UID non disponibile.");return;}
+    const duplicate=Object.entries(state.nfcTags||{}).find(([other,otherUid])=>other!==name&&normalizeUid(otherUid)===uid);
+    if(duplicate){alert("Questo adesivo è già associato a "+duplicate[0]+". Nessuna modifica effettuata.");setNfcStatus("Adesivo già assegnato a "+duplicate[0]+".");return;}
+    state.nfcTags=state.nfcTags||{};state.nfcTags[name]=uid;
+    if(saveState()){render();alert("Adesivo NFC associato a "+name+". UID: "+uid);setNfcStatus("Adesivo associato a "+name+".");}
+  }catch(err){setNfcStatus("Associazione NFC non riuscita: "+(err?.message||"errore"));alert("Non sono riuscito ad associare l'adesivo. Verifica NFC attivo, permessi e compatibilità del tag.\n\n"+(err?.message||""));}
+}
+async function handleNfcRead(uid){
+  const now=Date.now();
+  if(nfcBusy || now-(nfcLastRead.get(uid)||0)<5000)return;
+  nfcLastRead.set(uid,now);
+  const found=Object.entries(state.nfcTags||{}).find(([,tagUid])=>normalizeUid(tagUid)===uid);
+  if(!found){if(state.nfcSettings?.visualConfirm!==false)setNfcStatus("Adesivo NFC non associato. Entra in Modalità Messia per associarlo.");return;}
+  const name=found[0];
+  if(!state.people.includes(name)){setNfcStatus("Adesivo associato a un cinofilo non presente nell'elenco.");return;}
+  nfcBusy=true;
+  try{
+    const type=nextType(name);
+    let bau="";
+    if(type==="Entrata"){
+      // Mantiene la scelta BAU già prevista dall'app, necessaria per i riepiloghi.
+      bau=await chooseBau();
+      if(!bau)return;
+    }
+    const activeEntry=type==="Uscita"?latestFor(name):null;
+    const shouldShowReminder=type==="Uscita"&&activeEntry?.type==="Entrata"&&activeEntry.bau==="Con BAU";
+    const stamp=new Date();
+    state.records.push({name,type,iso:stamp.toISOString(),ts:stamp.getTime(),...(bau?{bau}:{})});
+    if(saveState()){
+      selected=name;render();
+      if(state.nfcSettings?.visualConfirm!==false)setNfcStatus("Timbratura NFC registrata: "+name+" · "+type+" · "+stamp.toLocaleTimeString("it-IT"));
+      else setNfcStatus("Lettura NFC attiva.");
+      if(shouldShowReminder)showReminder();
+    }else state.records.pop();
+  }finally{nfcBusy=false;}
+}
+$("nfcScanToggle").addEventListener("click",()=>nfcRunning?stopNfcScan():startNfcScan());
+const nfcConfirmBox=$("nfcVisualConfirm");
+if(nfcConfirmBox){nfcConfirmBox.checked=state.nfcSettings?.visualConfirm!==false;nfcConfirmBox.addEventListener("change",saveNfcSettings);}
+
 $("punch").onclick=async()=>{
   if(!selected || !state.people.includes(selected)) return;
   const type=nextType(selected);
@@ -827,7 +970,7 @@ $("exportShifts").onclick=()=>{
 const todayFile=()=>new Date().toISOString().slice(0,10);
 $("backup").onclick=()=>{if(adminMode)download(new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),"backup_completo_timbrature_baubau_"+todayFile()+".json");};
 $("restore").onclick=()=>{if(adminMode)$("backupFile").click();};
-$("backupPeople").onclick=()=>{if(adminMode)download(new Blob([JSON.stringify({kind:"baubau-people",people:state.people,codes:state.codes||{}},null,2)],{type:"application/json"}),"elenco_cinofili_baubau_"+todayFile()+".json");};
+$("backupPeople").onclick=()=>{if(adminMode)download(new Blob([JSON.stringify({kind:"baubau-people",people:state.people,codes:state.codes||{},nfcTags:state.nfcTags||{}},null,2)],{type:"application/json"}),"elenco_cinofili_baubau_"+todayFile()+".json");};
 $("restorePeople").onclick=()=>{if(adminMode)$("peopleFile").click();};
 $("backupRecords").onclick=()=>{if(adminMode)download(new Blob([JSON.stringify({kind:"baubau-records",records:state.records},null,2)],{type:"application/json"}),"storico_timbrature_baubau_"+todayFile()+".json");};
 $("restoreRecords").onclick=()=>{if(adminMode)$("recordsFile").click();};
@@ -838,7 +981,7 @@ $("backupFile").onchange=async e=>{
     const parsed=JSON.parse(await file.text());
     if(!Array.isArray(parsed.people)||!Array.isArray(parsed.records))throw new Error();
     if(!confirm("Il ripristino completo sostituirà cinofili, codici e timbrature presenti su questo dispositivo. Hai esportato un backup dei dati attuali?"))return;
-    state={...parsed,people:parsed.people,records:parsed.records,codes:parsed.codes||{}};selected="";if(!saveState())return;render();alert("Backup completo ripristinato.");
+    state={...parsed,people:parsed.people,records:parsed.records,codes:parsed.codes||{},nfcTags:parsed.nfcTags||{},nfcSettings:parsed.nfcSettings||{visualConfirm:true}};selected="";if(!saveState())return;render();alert("Backup completo ripristinato.");
   }catch(err){alert("File di backup completo non valido.");}
   finally{e.target.value="";}
 };
@@ -849,7 +992,7 @@ $("peopleFile").onchange=async e=>{
     const parsed=JSON.parse(await file.text());
     if(!Array.isArray(parsed.people))throw new Error();
     if(!confirm("Importare questo elenco sostituirà i cinofili e i relativi codici attuali, ma manterrà tutte le timbrature. Continuare?"))return;
-    state.people=parsed.people;state.codes=parsed.codes||{};if(selected&&!state.people.includes(selected))selected="";if(!saveState())return;render();alert("Elenco cinofili importato. Lo storico timbrature è rimasto invariato.");
+    state.people=parsed.people;state.codes=parsed.codes||{};state.nfcTags=parsed.nfcTags||{};if(selected&&!state.people.includes(selected))selected="";if(!saveState())return;render();alert("Elenco cinofili importato. Lo storico timbrature è rimasto invariato.");
   }catch(err){alert("File elenco cinofili non valido.");}
   finally{e.target.value="";}
 };
@@ -871,9 +1014,11 @@ function download(blob,name){
 function tick(){$("clock").textContent=new Date().toLocaleString("it-IT",{weekday:"long",day:"2-digit",month:"long",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});}
 $("saveLayout").addEventListener("click",saveLayoutChoice);
 const searchHomeCheckbox=$("showSearchHome");if(searchHomeCheckbox)searchHomeCheckbox.addEventListener("change",saveSearchVisibility);
+const eventsHomeCheckbox=$("showEventsHome");if(eventsHomeCheckbox)eventsHomeCheckbox.addEventListener("change",saveEventsHomeVisibility);
 applySearchVisibility();
+applyEventsHomeVisibility();
 $("showPeopleTab").addEventListener("click",()=>{activeTab="people";applyLayout();});
-$("showEventsTab").addEventListener("click",()=>{activeTab="events";applyLayout();});
+$("showEventsTab").addEventListener("click",()=>{if(showEventsInHome()){activeTab="events";applyLayout();}});
 window.addEventListener("resize",()=>{if(getLayout()==="auto")applyLayout();});
 window.addEventListener("orientationchange",()=>{if(getLayout()==="auto")applyLayout();});
 applyLayout();

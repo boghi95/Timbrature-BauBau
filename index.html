@@ -186,6 +186,11 @@ body.admin-mode #layoutSettingsPanel{display:block}
 body.admin-mode #workspace{display:flex!important;flex-direction:column!important;gap:12px!important;overflow:visible!important;height:auto!important}
 body.admin-mode #workspace>.panel{display:block!important;min-height:0!important;overflow:visible!important}
 body.admin-mode .panel.admin-collapsed>:not(h2){display:none!important}
+/* v28: i comandi di aggiunta eventi/scadenze devono sparire insieme al pannello chiuso. */
+body.admin-mode #eventsPanel.admin-collapsed #addEvent,
+body.admin-mode #eventsPanel.admin-collapsed #addDeadline,
+body.admin-mode #eventsPanel.admin-collapsed .row:has(#addEvent),
+body.admin-mode #eventsPanel.admin-collapsed .row:has(#addDeadline){display:none!important}
 body.admin-mode .panel>h2.admin-accordion-title{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;user-select:none}
 body.admin-mode .panel>h2.admin-accordion-title:after{content:"＋";font-size:20px;line-height:1;color:#315b91;flex:0 0 auto}
 body.admin-mode .panel:not(.admin-collapsed)>h2.admin-accordion-title:after{content:"−"}

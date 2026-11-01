@@ -421,6 +421,17 @@ body.hide-home-events:not(.admin-mode).layout-verticale #workspace { display:fle
   <p id="empty" class="warning">Ancora nessuna timbratura.</p>
 </section>
 <p class="warning">Importante: i dati sono salvati solo nel browser di questo dispositivo. Non cancellare i dati del browser e fai backup regolari. Questa è una prima versione di prova, non un sistema certificato per la gestione ufficiale delle presenze.</p>
+
+<section class="panel" id="onlinePublishPanel">
+  <h2>Sincronizzazione consultiva</h2>
+  <p class="warning">Pubblica esclusivamente Lavagna, eventi e scadenze nell'app Squadra Cinofila Ospitaletto. Le timbrature, i cinofili e i codici personali restano su questo dispositivo.</p>
+  <label for="pairingCodeInput">Codice di abbinamento</label>
+  <input id="pairingCodeInput" type="password" autocomplete="off" placeholder="Inserisci il codice segreto Supabase">
+  <button id="pairTerminalBtn" class="secondary" type="button">Collega questo terminale</button>
+  <p id="pairStatus" class="warning" aria-live="polite">Terminale non collegato.</p>
+  <button id="publishNowBtn" type="button">Pubblica online</button>
+  <p id="publishStatus" class="warning" aria-live="polite">Le modifiche saranno messe in coda se manca la connessione.</p>
+</section>
 </main>
 <div id="searchPage" class="hidden"><div class="search-results"><button id="closeSearch" class="secondary" type="button">← Torna all’app</button><h2>Risultati della ricerca</h2><div id="searchResults"></div></div></div>
 <div id="reminderBackdrop" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="reminderTitle">
@@ -1169,6 +1180,58 @@ setInterval(tick,1000);tick();render();renderEvents();
       document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkForUpdate(); });
     } catch (err) { console.error("Service worker:", err); }
   });
+})();
+</script>
+
+
+<script>
+// Sincronizzazione consultiva: whitelist rigorosa, nessun dato di timbratura viene inviato.
+(()=>{
+ const SUPABASE_URL="https://mifznmnvjdttynxwmogf.supabase.co";
+ const SUPABASE_KEY="sb_publishable_VuemIFOv2Q_8qb5lxrtGNQ_zFKInzgZ";
+ const TOKEN_KEY="baubau_terminal_publish_token_v1";
+ const DEVICE_KEY="baubau_terminal_device_id_v1";
+ const $id=id=>document.getElementById(id);
+ const pairStatus=$id('pairStatus'), publishStatus=$id('publishStatus');
+ if(!pairStatus||!publishStatus)return;
+ let pending=false, timer=null, publishing=false;
+ const deviceId=(()=>{let v=localStorage.getItem(DEVICE_KEY);if(!v){v='terminal-'+(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random().toString(16).slice(2));localStorage.setItem(DEVICE_KEY,v);}return v;})();
+ function payload(){return {events:Array.isArray(state.events)?state.events:[],deadlines:Array.isArray(state.deadlines)?state.deadlines:[],archivedDeadlines:Array.isArray(state.archivedDeadlines)?state.archivedDeadlines:[],boardCells:Array.isArray(boardCells)?boardCells:[]};}
+ async function publish(){
+   const token=localStorage.getItem(TOKEN_KEY);
+   if(!token){publishStatus.textContent='Collega prima questo terminale.';return false;}
+   if(!navigator.onLine){pending=true;publishStatus.textContent='Offline: pubblicazione in coda.';return false;}
+   if(publishing){pending=true;return false;} publishing=true;
+   try{
+     const response=await fetch(SUPABASE_URL+'/functions/v1/publish-content',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+token},body:JSON.stringify(payload())});
+     const result=await response.json();
+     if(!response.ok||!result.success)throw new Error(result.error||('Errore HTTP '+response.status));
+     pending=false;publishStatus.textContent='Pubblicazione completata · '+new Date().toLocaleTimeString('it-IT');return true;
+   }catch(e){pending=true;publishStatus.textContent='Pubblicazione non riuscita: '+e.message+'. Riproverò quando torna la connessione.';return false;}
+   finally{publishing=false;}
+ }
+ function schedule(){if(!localStorage.getItem(TOKEN_KEY))return;pending=true;clearTimeout(timer);timer=setTimeout(()=>{if(pending)publish();},1200);}
+ $id('pairTerminalBtn').addEventListener('click',async()=>{
+   const code=$id('pairingCodeInput').value.trim();
+   if(!code){pairStatus.textContent='Inserisci il codice di abbinamento.';return;}
+   pairStatus.textContent='Collegamento in corso…';
+   try{
+     const response=await fetch(SUPABASE_URL+'/functions/v1/terminal-pairing',{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({pairingCode:code,deviceId,deviceName:'Terminale Timbrature BauBau'})});
+     const result=await response.json();
+     if(!response.ok||!result.success||!result.token)throw new Error(result.error||('Errore HTTP '+response.status));
+     localStorage.setItem(TOKEN_KEY,result.token);$id('pairingCodeInput').value='';
+     pairStatus.textContent='Terminale collegato. Il precedente terminale autorizzato è stato sostituito.';
+     await publish();
+   }catch(e){pairStatus.textContent='Collegamento non riuscito: '+e.message;}
+ });
+ $id('publishNowBtn').addEventListener('click',publish);
+ // Intercetta i salvataggi già presenti nell'app, senza modificare la logica locale.
+ const originalSaveState=saveState;
+ saveState=function(){const ok=originalSaveState();if(ok)schedule();return ok;};
+ const originalSaveBoard=saveBoard;
+ saveBoard=function(){originalSaveBoard();schedule();};
+ window.addEventListener('online',()=>{if(pending){publishStatus.textContent='Connessione ripristinata: sincronizzazione…';publish();}});
+ if(localStorage.getItem(TOKEN_KEY))pairStatus.textContent='Terminale già collegato su questo dispositivo.';
 })();
 </script>
 

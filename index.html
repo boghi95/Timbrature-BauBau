@@ -311,7 +311,7 @@ body.hide-home-events:not(.admin-mode).layout-verticale #workspace { display:fle
 </div>
 <div id="workspace">
 <section class="panel">
-  <h2>1. Seleziona il cinofilo</h2>
+  <h2>Seleziona il cinofilo</h2>
   <div id="people" class="people"></div>
   <p id="last" class="warning">Seleziona un nome per iniziare.</p>
   <button id="punch" class="action" disabled>Seleziona un cinofilo</button>
@@ -828,6 +828,8 @@ function applyAccessMode(){
   if(adminMode){
     [$("workspace")?.querySelector(":scope > .panel:first-child"),$("eventsPanel"),$("boardPanel")].forEach(panel=>panel?.style.removeProperty("display"));
     setupAdminAccordions();
+    // Ogni ingresso in Messia parte con tutti i pannelli richiusi.
+    document.querySelectorAll("main .panel").forEach(panel=>panel.classList.add("admin-collapsed"));
   }
   const ids=["newName","add","manage","exportMonthly","exportShifts","export","backup","restore","backupPeople","restorePeople","backupRecords","restoreRecords","clearHistory"];
   ids.forEach(id=>{const el=$(id);if(el)el.disabled=!adminMode;});

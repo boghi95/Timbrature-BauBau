@@ -529,7 +529,12 @@ function getLayout(){
 function effectiveLayout(){
   const mode=getLayout();
   if(mode!=="auto")return mode;
-  return window.matchMedia("(min-width: 700px) and (orientation: landscape) and (pointer: fine)").matches ? "divisa" : "schede";
+  // Auto: su telefono usa sempre le schede; su PC/tablet affianca solo due pannelli.
+  // Con tre pannelli attivi evita la griglia orizzontale che li comprime o li sovrappone.
+  if(window.matchMedia("(max-width: 700px)").matches)return "schede";
+  if(activeHomePanelCount()===3)return "schede";
+  if(activeHomePanelCount()===2)return "divisa";
+  return "schede";
 }
 function activeHomePanelCount(){return 1+(showEventsInHome()?1:0)+(showBoardInHome()?1:0);}
 function applyLayout(){

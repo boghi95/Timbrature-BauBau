@@ -329,9 +329,9 @@ body.hide-home-events:not(.admin-mode).layout-verticale #workspace { display:fle
   <label for="layoutMode">Modalità di visualizzazione</label>
   <select id="layoutMode" style="width:100%;padding:12px;border:1px solid #bbc4d2;border-radius:8px;font:inherit;margin:6px 0 10px">
     <option value="auto">Automatica: PC diviso, telefono a schede</option>
-    <option value="divisa">Divisa: cinofili e calendario affiancati</option>
-    <option value="schede">A schede: passa da cinofili a calendario</option>
-    <option value="verticale">Verticale: cinofili sopra, calendario sotto</option>
+    <option value="divisa">Orizzontale: due pannelli affiancati</option>
+    <option value="schede">A schede: passa tra Presenze, Eventi e Lavagna</option>
+    <option value="verticale">Verticale: pannelli uno sotto l’altro</option>
   </select>
   <button id="saveLayout" class="secondary" type="button">Salva visualizzazione</button>
   <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e3e7ee">
@@ -531,13 +531,21 @@ function effectiveLayout(){
   if(mode!=="auto")return mode;
   return window.matchMedia("(min-width: 700px) and (orientation: landscape) and (pointer: fine)").matches ? "divisa" : "schede";
 }
+function activeHomePanelCount(){return 1+(showEventsInHome()?1:0)+(showBoardInHome()?1:0);}
 function applyLayout(){
   applyEventsHomeVisibility();
   applyBoardHomeVisibility();
-  const mode=getLayout();
+  // La vista orizzontale è valida solo con esattamente due pannelli visibili.
+  // Con uno o tre pannelli passa automaticamente alle schede.
+  let mode=getLayout();
+  const horizontalAllowed=activeHomePanelCount()===2;
+  const selector=$("layoutMode");
+  const divisaOption=selector?.querySelector('option[value="divisa"]');
+  if(divisaOption)divisaOption.disabled=!horizontalAllowed;
+  if(mode==="divisa"&&!horizontalAllowed){mode="schede";try{localStorage.setItem(LAYOUT_KEY,mode);}catch(e){}}
   document.body.classList.remove("layout-divisa","layout-schede","layout-verticale");
   document.body.classList.add("layout-"+effectiveLayout());
-  const selector=$("layoutMode");if(selector && selector.value!==mode)selector.value=mode;
+  if(selector && selector.value!==mode)selector.value=mode;
   const workspace=$("workspace");
   const peoplePanel=workspace?.querySelector(":scope > .panel:first-child");
   const eventsPanel=$("eventsPanel");
@@ -571,9 +579,11 @@ function applyLayout(){
 }
 function saveLayoutChoice(){
   const selector=$("layoutMode");if(!selector)return;
-  try{localStorage.setItem(LAYOUT_KEY,selector.value);}catch(e){}
+  let choice=selector.value;
+  if(choice==="divisa"&&activeHomePanelCount()!==2){choice="schede";selector.value=choice;}
+  try{localStorage.setItem(LAYOUT_KEY,choice);}catch(e){}
   activeTab="people";applyLayout();
-  alert("Visualizzazione salvata su questo dispositivo.");
+  alert(choice==="schede"&&getLayout()==="schede"?"Visualizzazione salvata su questo dispositivo.":"Visualizzazione salvata su questo dispositivo.");
 }
 
 

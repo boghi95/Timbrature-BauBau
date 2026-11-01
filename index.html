@@ -927,6 +927,12 @@ $("nfcScanToggle").addEventListener("click",()=>nfcRunning?stopNfcScan():startNf
 const nfcConfirmBox=$("nfcVisualConfirm");
 if(nfcConfirmBox){nfcConfirmBox.checked=state.nfcSettings?.visualConfirm!==false;nfcConfirmBox.addEventListener("change",saveNfcSettings);}
 
+// Tentativo automatico all'apertura. Web NFC può comunque richiedere
+// un gesto esplicito dell'utente: in quel caso resta disponibile il pulsante.
+setTimeout(()=>{
+  if(!nfcRunning) startNfcScan();
+},700);
+
 $("punch").onclick=async()=>{
   if(!selected || !state.people.includes(selected)) return;
   const type=nextType(selected);

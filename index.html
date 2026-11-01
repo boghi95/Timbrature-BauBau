@@ -183,6 +183,12 @@ body:not(.admin-mode).layout-verticale #workspace #eventList{display:block;flex:
 body:not(.admin-mode).layout-verticale #workspace #punch{flex:0 0 auto}
 body:not(.admin-mode).layout-verticale #workspace #eventsPanel .row{flex:0 0 auto}
 body.admin-mode #layoutSettingsPanel{display:block}
+body.admin-mode #workspace{display:flex!important;flex-direction:column!important;gap:12px!important;overflow:visible!important;height:auto!important}
+body.admin-mode #workspace>.panel{display:block!important;min-height:0!important;overflow:visible!important}
+body.admin-mode .panel.admin-collapsed>:not(h2){display:none!important}
+body.admin-mode .panel>h2.admin-accordion-title{cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:12px;user-select:none}
+body.admin-mode .panel>h2.admin-accordion-title:after{content:"＋";font-size:20px;line-height:1;color:#315b91;flex:0 0 auto}
+body.admin-mode .panel:not(.admin-collapsed)>h2.admin-accordion-title:after{content:"−"}
 @media(max-width:700px){
  body:not(.admin-mode).layout-divisa #workspace{grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
  body:not(.admin-mode).layout-divisa #workspace>.panel{padding:8px}
@@ -794,9 +800,30 @@ function doSearch(){
 $("searchClear").onclick=doSearch;$("globalSearch").addEventListener("keydown",e=>{if(e.key==="Enter")doSearch();});
 $("closeSearch").onclick=()=>$("searchPage").classList.add("hidden");
 
+// In Messia tutte le tre aree operative restano visibili in colonna.
+// Le altre sezioni amministrative diventano pannelli richiudibili.
+function setupAdminAccordions(){
+  document.querySelectorAll("main .panel").forEach(panel=>{
+    const title=panel.querySelector(":scope > h2");
+    if(!title || title.dataset.accordionReady==="1")return;
+    title.dataset.accordionReady="1";
+    title.classList.add("admin-accordion-title");
+    title.setAttribute("role","button");
+    title.setAttribute("tabindex","0");
+    const toggle=()=>panel.classList.toggle("admin-collapsed");
+    title.addEventListener("click",toggle);
+    title.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();toggle();}});
+    if(!["eventsPanel","boardPanel"].includes(panel.id) && panel.parentElement.id!=="workspace")panel.classList.add("admin-collapsed");
+  });
+}
+setupAdminAccordions();
 function applyAccessMode(){
   document.body.classList.toggle("admin-mode",adminMode);
   applyLayout();
+  if(adminMode){
+    [$("workspace")?.querySelector(":scope > .panel:first-child"),$("eventsPanel"),$("boardPanel")].forEach(panel=>panel?.style.removeProperty("display"));
+    setupAdminAccordions();
+  }
   const ids=["newName","add","manage","exportMonthly","exportShifts","export","backup","restore","backupPeople","restorePeople","backupRecords","restoreRecords","clearHistory"];
   ids.forEach(id=>{const el=$(id);if(el)el.disabled=!adminMode;});
   document.querySelectorAll("#managePeople button").forEach(el=>el.disabled=!adminMode);

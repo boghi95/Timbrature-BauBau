@@ -256,8 +256,24 @@ body.admin-mode #layoutSettingsPanel{display:block}
   }
 }
 
+
+/* v22: lavagna a celle persistenti e gestione cinofili compatta in Messia. */
+#workspaceTabs #showBoardTab{flex:1;min-width:0}
+#boardPanel .board-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;flex:1 1 auto;min-height:0;overflow-y:auto;align-content:start;padding:2px}
+#boardPanel .board-cell{display:block;width:100%;min-width:0;min-height:120px;resize:vertical;margin:0;padding:10px;border:1px solid #bbc4d2;border-radius:10px;background:#fff;color:#172033;font:inherit;font-weight:normal;line-height:1.35}
+#boardPanel .board-cell:focus{outline:2px solid #4263eb;outline-offset:1px}
+#boardPanel .board-controls{display:flex;gap:8px;flex-wrap:wrap;flex:0 0 auto;margin-top:8px}
+#boardPanel .board-controls button{flex:1;min-width:0}
+body:not(.admin-mode) #workspace #boardPanel{display:flex;flex-direction:column;min-height:0}
+body:not(.admin-mode).layout-schede #workspace>.panel.tab-active #boardGrid{flex:1 1 0;min-height:0;overflow-y:auto}
+body.admin-mode #managePeople .row{display:flex!important;flex-direction:row!important;align-items:center!important;gap:6px!important;flex-wrap:wrap!important}
+body.admin-mode #managePeople .row>span{flex:1 1 160px!important;min-width:120px!important}
+body.admin-mode #managePeople .row>button{flex:0 1 auto!important;width:auto!important;min-height:40px!important;padding:8px 10px!important;font-size:13px!important;white-space:normal!important}
+@media(max-width:600px){#boardPanel .board-cell{min-height:105px;padding:8px;font-size:14px}body.admin-mode #managePeople .row>button{flex:1 1 40%!important}}
+
 /* v21: possibilità di nascondere gli eventi solo dalla home, senza cancellarne i dati. */
 body.hide-home-events:not(.admin-mode) #eventsPanel { display:none !important; }
+body.hide-home-board:not(.admin-mode) #boardPanel { display:none !important; }
 body.hide-home-events:not(.admin-mode) #workspaceTabs #showEventsTab { display:none !important; }
 body.hide-home-events:not(.admin-mode) #workspace { grid-template-columns:minmax(0,1fr) !important; grid-template-rows:minmax(0,1fr) !important; }
 body.hide-home-events:not(.admin-mode).layout-verticale #workspace { display:flex !important; flex-direction:column !important; }
@@ -280,6 +296,7 @@ body.hide-home-events:not(.admin-mode).layout-verticale #workspace { display:fle
 <div id="workspaceTabs" class="hidden" aria-label="Sezioni home">
   <button id="showPeopleTab" class="secondary" type="button" aria-pressed="true">Presenze</button>
   <button id="showEventsTab" class="secondary" type="button" aria-pressed="false">Eventi e scadenze</button>
+  <button id="showBoardTab" class="secondary" type="button" aria-pressed="false">Lavagna</button>
 </div>
 <div id="workspace">
 <section class="panel">
@@ -296,6 +313,13 @@ body.hide-home-events:not(.admin-mode).layout-verticale #workspace { display:fle
   <div id="eventList" class="event-list"></div>
   <p id="noEvents" class="warning">Nessun evento o scadenza attiva.</p>
   <div class="row"><button id="addEvent" class="secondary" type="button">Aggiungi evento</button><button id="addDeadline" class="secondary" type="button">Aggiungi scadenza</button></div>
+</section>
+<section class="panel" id="boardPanel">
+  <h2>Lavagna</h2>
+  <p class="warning">Scrivi liberamente nei riquadri. Ogni nuova riga aggiunge due riquadri.</p>
+  <div id="boardGrid" class="board-grid"></div>
+  <div class="board-controls"><button id="addBoardRow" class="secondary" type="button">+ Aggiungi riga</button><button id="clearBoard" class="secondary" type="button">Svuota lavagna</button></div>
+  <p id="boardCount" class="warning" aria-live="polite"></p>
 </section>
 </div>
 
@@ -315,7 +339,14 @@ body.hide-home-events:not(.admin-mode).layout-verticale #workspace { display:fle
       <input id="showEventsHome" type="checkbox" style="width:auto;flex:0 0 auto;margin-top:3px">
       <span>Mostra eventi e scadenze nella home</span>
     </label>
-    <p class="warning">Se disattivata, la sezione Eventi e scadenze e la relativa scheda vengono nascoste nella home. Gli eventi salvati non vengono cancellati.</p>
+    <p class="warning">Se disattivata, calendario e scheda vengono nascosti solo nella home. La gestione resta disponibile in Modalità Messia e gli avvisi delle scadenze possono comunque comparire.</p>
+  </div>
+  <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e3e7ee">
+    <label style="display:flex;gap:10px;align-items:flex-start;font-weight:bold;line-height:1.4">
+      <input id="showBoardHome" type="checkbox" style="width:auto;flex:0 0 auto;margin-top:3px">
+      <span>Mostra la scheda Lavagna nella home</span>
+    </label>
+    <p class="warning">La lavagna resta salvata su questo dispositivo anche se la nascondi dalla home.</p>
   </div>
   <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e3e7ee">
     <label style="display:flex;gap:10px;align-items:flex-start;font-weight:bold;line-height:1.4">
@@ -469,6 +500,25 @@ function saveSearchVisibility(){
   try{localStorage.setItem(SEARCH_HOME_KEY,String(enabled));}catch(e){}
   applySearchVisibility();
 }
+const BOARD_HOME_KEY = "timbrature_baubau_board_home_v22";
+const BOARD_DATA_KEY = "timbrature_baubau_board_data_v22";
+function showBoardInHome(){try{return localStorage.getItem(BOARD_HOME_KEY)!=="false";}catch(e){return true;}}
+function applyBoardHomeVisibility(){
+  const enabled=showBoardInHome();
+  document.body.classList.toggle("hide-home-board",!enabled);
+  const cb=$("showBoardHome");if(cb)cb.checked=enabled;
+  if(!enabled && activeTab==="board")activeTab="people";
+}
+function saveBoardHomeVisibility(){const cb=$("showBoardHome");try{localStorage.setItem(BOARD_HOME_KEY,String(cb?cb.checked:true));}catch(e){}applyBoardHomeVisibility();applyLayout();}
+let boardCells=[];
+function loadBoard(){try{const x=JSON.parse(localStorage.getItem(BOARD_DATA_KEY)||"null");if(Array.isArray(x)&&x.length>=4&&x.length%2===0)return x.map(v=>String(v??""));}catch(e){}return ["","","",""];}
+function saveBoard(){try{localStorage.setItem(BOARD_DATA_KEY,JSON.stringify(boardCells));}catch(e){}}
+function renderBoard(){
+  const grid=$("boardGrid");if(!grid)return;grid.innerHTML="";
+  boardCells.forEach((value,i)=>{const cell=document.createElement("textarea");cell.className="board-cell";cell.placeholder="Scrivi qui…";cell.setAttribute("aria-label","Riquadro "+(i+1));cell.value=value;cell.addEventListener("input",()=>{boardCells[i]=cell.value;saveBoard();});grid.appendChild(cell);});
+  $("boardCount").textContent=boardCells.length+" riquadri · "+(boardCells.length/2)+" righe";
+}
+boardCells=loadBoard();
 let activeTab = "people";
 function getLayout(){
   let mode="auto";
@@ -483,6 +533,7 @@ function effectiveLayout(){
 }
 function applyLayout(){
   applyEventsHomeVisibility();
+  applyBoardHomeVisibility();
   const mode=getLayout();
   document.body.classList.remove("layout-divisa","layout-schede","layout-verticale");
   document.body.classList.add("layout-"+effectiveLayout());
@@ -490,8 +541,10 @@ function applyLayout(){
   const workspace=$("workspace");
   const peoplePanel=workspace?.querySelector(":scope > .panel:first-child");
   const eventsPanel=$("eventsPanel");
+  const boardPanel=$("boardPanel");
   if(peoplePanel)peoplePanel.classList.toggle("tab-active",activeTab==="people");
   if(eventsPanel)eventsPanel.classList.toggle("tab-active",activeTab==="events");
+  if(boardPanel)boardPanel.classList.toggle("tab-active",activeTab==="board");
   // v19: in modalità schede, imponi anche via stile inline quale pannello mostrare.
   // Le regole CSS legacy del landscape non possono così riaprire il pannello inattivo.
   const selectedLayout=effectiveLayout();
@@ -500,13 +553,21 @@ function applyLayout(){
     else peoplePanel.style.removeProperty("display");
   }
   if(eventsPanel){
-    if(!showEventsInHome()) eventsPanel.style.setProperty("display","none","important");
+    if(!showEventsInHome() && !adminMode) eventsPanel.style.setProperty("display","none","important");
     else if(selectedLayout==="schede") eventsPanel.style.setProperty("display", activeTab==="events" ? "flex" : "none", "important");
     else eventsPanel.style.removeProperty("display");
   }
-  const p=$("showPeopleTab"),e=$("showEventsTab");
+  if(boardPanel){
+    if(!showBoardInHome() && !adminMode) boardPanel.style.setProperty("display","none","important");
+    else if(selectedLayout==="schede") boardPanel.style.setProperty("display", activeTab==="board" ? "flex" : "none", "important");
+    else boardPanel.style.removeProperty("display");
+  }
+  const p=$("showPeopleTab"),e=$("showEventsTab"),b=$("showBoardTab");
   if(p)p.setAttribute("aria-pressed",String(activeTab==="people"));
   if(e)e.setAttribute("aria-pressed",String(activeTab==="events"));
+  if(b)b.setAttribute("aria-pressed",String(activeTab==="board"));
+  if(e)e.classList.toggle("hidden",!showEventsInHome());
+  if(b)b.classList.toggle("hidden",!showBoardInHome());
 }
 function saveLayoutChoice(){
   const selector=$("layoutMode");if(!selector)return;
@@ -968,7 +1029,7 @@ $("exportShifts").onclick=()=>{
   exportCsv(rows,"dettaglio_turni_presenze_"+new Date().toISOString().slice(0,10)+".csv");
 };
 const todayFile=()=>new Date().toISOString().slice(0,10);
-$("backup").onclick=()=>{if(adminMode)download(new Blob([JSON.stringify(state,null,2)],{type:"application/json"}),"backup_completo_timbrature_baubau_"+todayFile()+".json");};
+$("backup").onclick=()=>{if(adminMode)download(new Blob([JSON.stringify({...state,boardData:boardCells},null,2)],{type:"application/json"}),"backup_completo_timbrature_baubau_"+todayFile()+".json");};
 $("restore").onclick=()=>{if(adminMode)$("backupFile").click();};
 $("backupPeople").onclick=()=>{if(adminMode)download(new Blob([JSON.stringify({kind:"baubau-people",people:state.people,codes:state.codes||{},nfcTags:state.nfcTags||{}},null,2)],{type:"application/json"}),"elenco_cinofili_baubau_"+todayFile()+".json");};
 $("restorePeople").onclick=()=>{if(adminMode)$("peopleFile").click();};
@@ -981,7 +1042,7 @@ $("backupFile").onchange=async e=>{
     const parsed=JSON.parse(await file.text());
     if(!Array.isArray(parsed.people)||!Array.isArray(parsed.records))throw new Error();
     if(!confirm("Il ripristino completo sostituirà cinofili, codici e timbrature presenti su questo dispositivo. Hai esportato un backup dei dati attuali?"))return;
-    state={...parsed,people:parsed.people,records:parsed.records,codes:parsed.codes||{},nfcTags:parsed.nfcTags||{},nfcSettings:parsed.nfcSettings||{visualConfirm:true}};selected="";if(!saveState())return;render();alert("Backup completo ripristinato.");
+    state={...parsed,people:parsed.people,records:parsed.records,codes:parsed.codes||{},nfcTags:parsed.nfcTags||{},nfcSettings:parsed.nfcSettings||{visualConfirm:true}};if(Array.isArray(parsed.boardData)&&parsed.boardData.length>=4&&parsed.boardData.length%2===0){boardCells=parsed.boardData.map(v=>String(v??""));renderBoard();saveBoard();}selected="";if(!saveState())return;render();renderEvents();alert("Backup completo ripristinato.");
   }catch(err){alert("File di backup completo non valido.");}
   finally{e.target.value="";}
 };
@@ -1015,10 +1076,16 @@ function tick(){$("clock").textContent=new Date().toLocaleString("it-IT",{weekda
 $("saveLayout").addEventListener("click",saveLayoutChoice);
 const searchHomeCheckbox=$("showSearchHome");if(searchHomeCheckbox)searchHomeCheckbox.addEventListener("change",saveSearchVisibility);
 const eventsHomeCheckbox=$("showEventsHome");if(eventsHomeCheckbox)eventsHomeCheckbox.addEventListener("change",saveEventsHomeVisibility);
+const boardHomeCheckbox=$("showBoardHome");if(boardHomeCheckbox)boardHomeCheckbox.addEventListener("change",saveBoardHomeVisibility);
+$("addBoardRow").addEventListener("click",()=>{if(boardCells.length>=48){alert("La lavagna può contenere al massimo 24 righe in questa versione.");return;}boardCells.push("","");renderBoard();saveBoard();const cells=$("boardGrid").querySelectorAll("textarea");cells[cells.length-2]?.focus();});
+$("clearBoard").addEventListener("click",()=>{if(confirm("Svuotare tutti i riquadri della lavagna?")){boardCells=Array.from({length:Math.max(4,boardCells.length)},()=>"");renderBoard();saveBoard();}});
 applySearchVisibility();
 applyEventsHomeVisibility();
+applyBoardHomeVisibility();
+renderBoard();
 $("showPeopleTab").addEventListener("click",()=>{activeTab="people";applyLayout();});
 $("showEventsTab").addEventListener("click",()=>{if(showEventsInHome()){activeTab="events";applyLayout();}});
+$("showBoardTab").addEventListener("click",()=>{if(showBoardInHome()){activeTab="board";applyLayout();}});
 window.addEventListener("resize",()=>{if(getLayout()==="auto")applyLayout();});
 window.addEventListener("orientationchange",()=>{if(getLayout()==="auto")applyLayout();});
 applyLayout();
